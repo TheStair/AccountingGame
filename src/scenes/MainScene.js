@@ -439,7 +439,10 @@ export class MainScene extends Scene {
         this.conveyor_belts.forEach((conveyor_belt) => { conveyor_belt.update(time, delta) });
         //this.enemy_blue.update();
         this.player.update(time, delta);
-        this.balls.getChildren().forEach((ball) => { ball.update(time, delta) });
+        this.balls.getChildren().forEach((ball) => { 
+            ball.update(time, delta);
+            ball.checkHover(this.player); // ✅ Added this line
+    });
 
         // Sprite ordering
         // TEMP?
