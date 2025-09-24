@@ -13,13 +13,15 @@ export class MainMenuScene extends Scene {
         const { width, height } = this.scale;
 
         // --- Background (stretched to screen) ---
-        this.add.image(width / 2, height / 2, "home_bg")
+        this.add
+            .image(width / 2, height / 2, "home_bg")
             .setOrigin(0.5)
             .setDisplaySize(width, height)
             .setDepth(0);
 
         // --- Clouds (original PNG size, no stretching) ---
-        this.clouds = this.add.image(width / 2, height / 2 - 50, "home_clouds")
+        this.clouds = this.add
+            .image(width / 2, height / 2 - 50, "home_clouds")
             .setOrigin(0.5)
             .setScale(0.5)
             .setDepth(1);
@@ -27,7 +29,8 @@ export class MainMenuScene extends Scene {
         this.cloudSpeed = 0.3;
 
         // --- Overlay text (above clouds) ---
-        const homeText = this.add.image(width / 2, height / 2 + 80, "home_text")
+        const homeText = this.add
+            .image(width / 2, height / 2 + 80, "home_text")
             .setOrigin(0.5)
             .setDepth(2)
             .setScale(0.8);
@@ -53,32 +56,51 @@ export class MainMenuScene extends Scene {
 
         const createButton = (x, y, labelText, onClick) => {
             // Outer border rectangle
-            const border = this.add.rectangle(0, 0, 304, 64, 0xdcc89f).setDepth(3);
+            const border = this.add
+                .rectangle(0, 0, 304, 64, 0xdcc89f)
+                .setDepth(3);
 
             // Inner fill rectangle
-            const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
+            const rect = this.add
+                .rectangle(0, 0, 300, 60, 0x7f1a02)
+                .setDepth(3);
 
             // Label text
-            const label = this.add.text(0, 0, labelText, {
-                fontSize: "24px",
-                fontFamily: '"Jersey 10", sans-serif',
-                color: "#dcc89f"
-            }).setOrigin(0.5).setDepth(3);
+            const label = this.add
+                .text(0, 0, labelText, {
+                    fontSize: "24px",
+                    fontFamily: '"Jersey 10", sans-serif',
+                    color: "#dcc89f",
+                })
+                .setOrigin(0.5)
+                .setDepth(3);
 
             // Container holds border, fill, and label
-            const button = this.add.container(x, y, [border, rect, label]).setDepth(3);
+            const button = this.add
+                .container(x, y, [border, rect, label])
+                .setDepth(3);
 
             rect.setInteractive({ useHandCursor: true });
 
             // Hover effect
             rect.on("pointerover", () => {
                 rect.setFillStyle(0xa8321a);
-                this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
+                this.tweens.add({
+                    targets: button,
+                    scale: 1.05,
+                    duration: 150,
+                    ease: "Power1",
+                });
             });
 
             rect.on("pointerout", () => {
                 rect.setFillStyle(0x7f1a02);
-                this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
+                this.tweens.add({
+                    targets: button,
+                    scale: 1,
+                    duration: 150,
+                    ease: "Power1",
+                });
             });
 
             // Click effect
@@ -89,7 +111,7 @@ export class MainMenuScene extends Scene {
                     scale: 0.9,
                     duration: 80,
                     yoyo: true,
-                    ease: "Power1"
+                    ease: "Power1",
                 });
                 tween.once("complete", onClick);
             });
@@ -104,14 +126,19 @@ export class MainMenuScene extends Scene {
         const startY = height / 2 - blockHeight / 2;
 
         options.forEach((option, index) => {
-            createButton(width / 2, startY + index * spacing, get_option_text(option), () => {
-                if (option === "settings") {
-                    this.scene.start("SettingsScene");
-                } else {
-                    selectedOptions.type = option;
-                    this.startGame(selectedOptions);
+            createButton(
+                width / 2,
+                startY + index * spacing,
+                get_option_text(option),
+                () => {
+                    if (option === "settings") {
+                        this.scene.start("SettingsScene");
+                    } else {
+                        selectedOptions.type = option;
+                        this.startGame(selectedOptions);
+                    }
                 }
-            });
+            );
         });
     }
 
@@ -132,3 +159,4 @@ export class MainMenuScene extends Scene {
         });
     }
 }
+

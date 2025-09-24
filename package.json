@@ -16,5 +16,22 @@
     "phaser": "^3.80.1",
     "react": "^19.1.1",
     "xlsx": "^0.18.5"
-  }
+  },
+  "description": "Comp 4710 Senior Design Project - Continuing from previous students",
+  "main": "vite.config.js",
+  "directories": {
+    "test": "tests",
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheStair/AccountingGame.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TheStair/AccountingGame/issues"
+  },
+  "homepage": "https://github.com/TheStair/AccountingGame#readme"
 }

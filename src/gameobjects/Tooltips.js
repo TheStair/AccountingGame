@@ -1,75 +1,79 @@
 export class TooltipManager {
-    scene;
-
-
     constructor(scene) {
         this.scene = scene;
-        this.tooltips = [];
-        // press T to show all tooltips
-        this.scene.input.keyboard.on("keydown-T", () => {
-            this.tooltips.forEach(({ target, textObject, content }) => {
-                this.show(textObject, target, content);
-            });
+        this.tooltipContainer = this.scene.add.container(0, 0).setDepth(1000);
+
+        this.tooltipBackground = this.scene.add
+            .rectangle(0, 0, 0, 0, 0x000000, 0.8)
+            .setOrigin(0, 0);
+
+        this.tooltipText = this.scene.add.text(0, 0, "", {
+            fontFamily: "Arial",
+            fontSize: "16px",
+            color: "#ffffff",
+            wordWrap: { width: 200 },
         });
 
-        this.scene.input.keyboard.on("keyup-T", () => {
-            this.tooltips.forEach(({ textObject }) => {
-                textObject.setVisible(false);
-            });
-        });
+        this.tooltipContainer.add([this.tooltipBackground, this.tooltipText]);
+        this.tooltipContainer.setVisible(false);
     }
 
-    attachTo(target, content) {
+    attachTo(target, text, options = {}) {
+        const maxWidth = options.maxWidth || 200;
+        const fontSize = options.fontSize || 16;
+        const padding = options.padding || 5;
+
+        // Update text style
+        this.tooltipText.setText(text);
+        this.tooltipText.setStyle({
+            fontSize: `${fontSize}px`,
+            wordWrap: { width: maxWidth },
+        });
+
+        // Update background size
+        const textBounds = this.tooltipText.getBounds();
+        this.tooltipBackground.setSize(
+            textBounds.width + padding * 2,
+            textBounds.height + padding * 2
+        );
+
+        // Reposition text inside background
+        this.tooltipText.setPosition(padding, padding);
+
+        // Show tooltip on hover
         target.setInteractive();
+        target.on("pointerover", () => {
+            const globalPos = target.getTopLeft
+                ? target.getTopLeft()
+                : { x: target.x, y: target.y };
 
-        const textObject = this.scene.add.text(0, 0, "", {
-            fontSize: "14px",
-            fill: "#fff",
-            backgroundColor: "#000",
-            padding: { x: 6, y: 4 },
-            wordWrap: {
-                width: 200,
-                useAdvancedWrap: true
-            }
-        }).setDepth(1000).setVisible(false);
-        textObject.setAlpha(0.8);
-        this.tooltips.push({ target, textObject, content });
+            // Calculate tooltip position
+            let x = globalPos.x;
+            let y = globalPos.y - this.tooltipBackground.height - 5;
 
-        const show = () => this.show(textObject, target, content);
+            // Clamp to screen bounds
+            const cam = this.scene.cameras.main;
+            const screenWidth = cam.width;
+            const screenHeight = cam.height;
 
-        target.on("pointerover", show);
-        target.on("pointerout", () => textObject.setVisible(false));
+            x = Phaser.Math.Clamp(
+                x,
+                5,
+                screenWidth - this.tooltipBackground.width - 5
+            );
+            y = Phaser.Math.Clamp(
+                y,
+                5,
+                screenHeight - this.tooltipBackground.height - 5
+            );
 
-        target.on("pointerdown", () => {
-            this.scene.time.delayedCall(500, show);
+            this.tooltipContainer.setPosition(x, y);
+            this.tooltipContainer.setVisible(true);
         });
 
-        target.on("pointerup", () => textObject.setVisible(false));
-    }
-
-    show(textObject, target, content) {
-        const bounds = target.getBounds();
-        const cam = this.scene.cameras.main;
-        const screenMidX = cam.worldView.centerX;
-        const screenMidY = cam.worldView.centerY;
-
-        let x = bounds.centerX;
-        let y = bounds.centerY;
-
-        if (y < screenMidY) {
-            y += 30;
-        } else {
-            y -= 30 + textObject.height;
-        }
-
-        if (x < screenMidX) {
-            x += 20;
-        } else {
-            x -= 20 + textObject.width;
-        }
-
-        textObject.setText(typeof content === "function" ? content() : content);
-        textObject.setPosition(x, y);
-        textObject.setVisible(true);
+        target.on("pointerout", () => {
+            this.tooltipContainer.setVisible(false);
+        });
     }
 }
+
