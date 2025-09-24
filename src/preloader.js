@@ -15,6 +15,13 @@ export class Preloader extends Phaser.Scene {
         progressBox.fillStyle(0x222222, 0.8);
         progressBox.fillRect(width / 2 - 160, height / 2 - 25, 320, 50);
 
+        // Home Screen
+        this.load.setPath("assets");
+        this.load.image("home_bg", "HomeScreen.png");
+        this.load.image("home_clouds", "HomeScreenClouds.png");
+        this.load.image("home_text", "HomeScreenText.png");
+
+
         // Create a loading text
         const loadingText = this.add.text(width / 2, height / 2 - 60, 'Loading...', {
             fontSize: '24px',

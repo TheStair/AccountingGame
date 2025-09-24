@@ -10,57 +10,119 @@ export class MainMenuScene extends Scene {
     }
 
     create() {
+        const { width, height } = this.scale;
+
+        // --- Background (stretched to screen) ---
+        this.add.image(width / 2, height / 2, "home_bg")
+            .setOrigin(0.5)
+            .setDisplaySize(width, height)
+            .setDepth(0);
+
+        // --- Clouds (original PNG size, no stretching) ---
+        this.clouds = this.add.image(width / 2, height / 2 - 50, "home_clouds")
+            .setOrigin(0.5)
+            .setScale(0.5)
+            .setDepth(1);
+
+        this.cloudSpeed = 0.3;
+
+        // --- Overlay text (above clouds) ---
+        const homeText = this.add.image(width / 2, height / 2 + 80, "home_text")
+            .setOrigin(0.5)
+            .setDepth(2)
+            .setScale(0.8);
+
+        // --- Music ---
         if (this.sound.locked) {
-            this.sound.once('unlocked', () => {
-                this.game.musicManager.play(this,
-                    'menu_bgm');
+            this.sound.once("unlocked", () => {
+                this.game.musicManager.play(this, "menu_bgm");
             });
         } else {
-            this.game.musicManager.play(this, 'menu_bgm');
+            this.game.musicManager.play(this, "menu_bgm");
         }
-        this.add.text(this.scale.width / 2, 100, "Accounting Fundamentals", {
-            fontSize: "32px",
-            color: "#ffffff"
-        }).setOrigin(0.5);
 
-        const options = ["debit_credit", "accounting"];
-        const selectedOptions = {
-            type: "debit_credit"
+        // --- Buttons ---
+        const options = ["debit_credit", "accounting", "settings"];
+        const selectedOptions = { type: "debit_credit" };
+
+        const get_option_text = (option) => {
+            if (option === "debit_credit") return "Debit vs Credit";
+            if (option === "accounting") return "The Five Building Blocks";
+            if (option === "settings") return "Settings";
         };
 
-        function get_option_text(option) {
-            if (option == "debit_credit") {
-                return "Debit_vs._Credit";
-            } else if (option == "accounting"){
-                return "The_Five_Building_Blocks";
-            }
-        }
+        const createButton = (x, y, labelText, onClick) => {
+            // Outer border rectangle
+            const border = this.add.rectangle(0, 0, 304, 64, 0xdcc89f).setDepth(3);
+
+            // Inner fill rectangle
+            const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
+
+            // Label text
+            const label = this.add.text(0, 0, labelText, {
+                fontSize: "24px",
+                fontFamily: '"Jersey 10", sans-serif',
+                color: "#dcc89f"
+            }).setOrigin(0.5).setDepth(3);
+
+            // Container holds border, fill, and label
+            const button = this.add.container(x, y, [border, rect, label]).setDepth(3);
+
+            rect.setInteractive({ useHandCursor: true });
+
+            // Hover effect
+            rect.on("pointerover", () => {
+                rect.setFillStyle(0xa8321a);
+                this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
+            });
+
+            rect.on("pointerout", () => {
+                rect.setFillStyle(0x7f1a02);
+                this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
+            });
+
+            // Click effect
+            rect.on("pointerdown", () => {
+                this.sound.play("selection", { volume: 1 });
+                const tween = this.tweens.add({
+                    targets: button,
+                    scale: 0.9,
+                    duration: 80,
+                    yoyo: true,
+                    ease: "Power1"
+                });
+                tween.once("complete", onClick);
+            });
+
+            return button;
+        };
+
+        // Evenly center buttons vertically
+        const totalButtons = options.length;
+        const spacing = 100;
+        const blockHeight = (totalButtons - 1) * spacing;
+        const startY = height / 2 - blockHeight / 2;
 
         options.forEach((option, index) => {
-            const text = this.add.text(this.scale.width / 2, 200 + index * 50, get_option_text(option), {
-                fontSize: "24px",
-                color: "#ffffff"
-            }).setOrigin(0.5)
-                .setInteractive();
-
-            text.on("pointerdown", () => {
-                this.sound.play('selection', {
-                    volume: 1
-                });
-                selectedOptions.type = option;
-                this.startGame(selectedOptions);
+            createButton(width / 2, startY + index * spacing, get_option_text(option), () => {
+                if (option === "settings") {
+                    this.scene.start("SettingsScene");
+                } else {
+                    selectedOptions.type = option;
+                    this.startGame(selectedOptions);
+                }
             });
         });
+    }
 
-        const settingsText = this.add.text(this.scale.width / 2, 400, "Settings", {
-            fontSize: "24px",
-            color: "#ffffff"
-        }).setOrigin(0.5).setInteractive();
+    update() {
+        if (this.clouds) {
+            this.clouds.x -= this.cloudSpeed;
 
-        settingsText.on("pointerdown", () => {
-            this.sound.play('selection', { volume: 1 });
-            this.scene.start("SettingsScene"); // Go to settings scene
-        });
+            if (this.clouds.x < -this.clouds.displayWidth / 2) {
+                this.clouds.x = this.scale.width + this.clouds.displayWidth / 2;
+            }
+        }
     }
 
     startGame(selectedOptions) {
