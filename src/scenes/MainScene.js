@@ -12,7 +12,7 @@ const DEBIT = "Debit";
 const CREDIT = "Credit";
 const ASSETS = "Assets";
 const LIABITILITIES = "Liabilities";
-const STAKEHOLDERS_EQUITY = "Stakeholders Equity";
+const STOCKHOLDERS_EQUITY = "Stockholders' Equity";
 const EXPENSES = "Expenses";
 const REVENUES = "Revenues";
 const DESCRIPTION_MAP = new Map([
@@ -24,7 +24,7 @@ const DESCRIPTION_MAP = new Map([
         "A present obligation that requires an entity to transferor otherwise provide economic benefits to others.",
     ],
     [
-        STAKEHOLDERS_EQUITY,
+        STOCKHOLDERS_EQUITY,
         "The residual interest in the assets of anentity that remains after deducting its liabilities.",
     ],
     [
@@ -91,14 +91,14 @@ export class MainScene extends Scene {
             this.config.basket_types = [
                 ASSETS,
                 LIABITILITIES,
-                STAKEHOLDERS_EQUITY,
+                STOCKHOLDERS_EQUITY,
                 EXPENSES,   // swapped
                 REVENUES,   // swapped
             ];
             this.config.belt_types = [
                 ASSETS,
                 LIABITILITIES,
-                STAKEHOLDERS_EQUITY,
+                STOCKHOLDERS_EQUITY,
                 EXPENSES,   // swapped
                 REVENUES,   // swapped
             ];
@@ -229,7 +229,7 @@ export class MainScene extends Scene {
         const typeNames = [
             "assets",
             "liabilities",
-            "stakeholders equity",
+            "Stockholders' Equity",
             "expenses",
             "revenues",
         ];
