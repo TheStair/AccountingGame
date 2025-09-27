@@ -487,6 +487,12 @@ export class MainScene extends Scene {
 
         // Move once per frame using normalized vector inside Player.move()
         this.player.move(dir);
+        // Wrap edges
+const cam = this.cameras.main;
+if (this.player.x > cam.width) this.player.x = 0;
+else if (this.player.x < 0) this.player.x = cam.width;
+if (this.player.y > cam.height) this.player.y = 0;
+else if (this.player.y < 0) this.player.y = cam.height;
 
         if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
             this.scene.pause();
