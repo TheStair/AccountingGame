@@ -140,9 +140,9 @@ export class MenuScene extends Scene {
         startGameText.on("pointerdown", () => {
             localStorage.setItem("difficulty", "1");
             // stop MenuScene and start MainScene
-            this.sound.play("selection", {
-                volume: 1,
-            });
+            if (this.game.sfxVolume > 0) {
+  this.sound.play("selection", { volume: this.game.sfxVolume });
+}
             this.game.events.emit("start-game");
         });
         this.tooltip.attachTo(

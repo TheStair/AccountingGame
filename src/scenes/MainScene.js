@@ -61,6 +61,9 @@ export class MainScene extends Scene {
     }
 
     init(data) {
+        // Restore saved SFX volume
+        this.game.sfxVolume = parseFloat(localStorage.getItem("volume"));
+        if (isNaN(this.game.sfxVolume)) this.game.sfxVolume = 1.0;
         this.ballCount = 0;
         this.cameras.main.fadeIn(1000, 0, 0, 0);
 
@@ -185,22 +188,29 @@ export class MainScene extends Scene {
     }
 
     checkForBall(ball, basket) {
-        if (ball.state !== "picked" && ball.pit_number == null) {
-            if (ball.type === basket.type.toLowerCase()) {
-                this.points += ball.been_in_wrong_basket
-                    ? RIGHT_NOT_FIRST_TIME_SCORE
-                    : RIGHT_FIRST_TIME_SCORE;
-                this.scene.get("HudScene").update_points(this.points);
-                ball.destroyBall();
-                this.answer_stats.get(basket.type).correct += 1;
-                this.sound.play("correct", { volume: 1 });
-            } else {
-                this.sound.play("error", { volume: 1 });
-                ball.goToPit();
-                this.answer_stats.get(basket.type).incorrect += 1;
+    if (ball.state !== "picked" && ball.pit_number == null) {
+        if (ball.type === basket.type.toLowerCase()) {
+            this.points += ball.been_in_wrong_basket
+                ? RIGHT_NOT_FIRST_TIME_SCORE
+                : RIGHT_FIRST_TIME_SCORE;
+            this.scene.get("HudScene").update_points(this.points);
+            ball.destroyBall();
+            this.answer_stats.get(basket.type).correct += 1;
+
+            // ✅ Only play if volume > 0
+            if (this.game.sfxVolume > 0) {
+                this.sound.play("correct", { volume: this.game.sfxVolume });
             }
+        } else {
+            // ✅ Only play if volume > 0
+            if (this.game.sfxVolume > 0) {
+                this.sound.play("error", { volume: this.game.sfxVolume });
+            }
+            ball.goToPit();
+            this.answer_stats.get(basket.type).incorrect += 1;
         }
     }
+}
 
     getRandomNBElements(total) {
         const credits = this.normalBalance
@@ -273,12 +283,16 @@ export class MainScene extends Scene {
 
     create() {
         if (this.sound.locked) {
-            this.sound.once("unlocked", () => {
-                this.game.musicManager.play(this, "game_bgm");
-            });
-        } else {
-            this.game.musicManager.play(this, "game_bgm");
-        }
+    this.sound.once("unlocked", () => {
+        // Always sync music volume from settings before playing
+        this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
+        this.game.musicManager.play(this, "game_bgm");
+    });
+} else {
+    // Always sync music volume from settings before playing
+    this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
+    this.game.musicManager.play(this, "game_bgm");
+}
         this.add.image(0, 0, "background").setOrigin(0, 0);
 
         // conveyor belts + baskets

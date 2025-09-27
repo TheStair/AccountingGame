@@ -133,9 +133,9 @@ export class PauseScene extends Scene {
         this.isResuming = false;
         // click continue to resume the game
         this.resumeFunction = () => {
-            this.sound.play("selection", {
-                volume: 1,
-            });
+            if (this.game.sfxVolume > 0) {
+    this.sound.play("selection", { volume: this.game.sfxVolume });
+}
             if (!this.isResuming) {
                 this.isResuming = true;
                 // disable the buttons
@@ -212,9 +212,9 @@ export class PauseScene extends Scene {
         this.returnToMainMenuRect.setStrokeStyle(2, 0xffffff);
         this.returnToMainMenu.on("pointerdown", () => {
             // stop MainScene and start MainMenuScene
-            this.sound.play("selection", {
-                volume: 1,
-            });
+            if (this.game.sfxVolume > 0) {
+    this.sound.play("selection", { volume: this.game.sfxVolume });
+}
             this.game.events.emit("exit-game");
             this.scene.stop("MainScene");
             this.scene.start("MainMenuScene");

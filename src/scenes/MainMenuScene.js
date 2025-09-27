@@ -12,14 +12,18 @@ export class MainMenuScene extends Scene {
     create() {
         const { width, height } = this.scale;
 
-        // --- Background (stretched to screen) ---
+        // Restore global SFX/music volume
+        this.game.sfxVolume = parseFloat(localStorage.getItem("volume"));
+        if (isNaN(this.game.sfxVolume)) this.game.sfxVolume = 1.0;
+
+        // --- Background ---
         this.add
             .image(width / 2, height / 2, "home_bg")
             .setOrigin(0.5)
             .setDisplaySize(width, height)
             .setDepth(0);
 
-        // --- Clouds (original PNG size, no stretching) ---
+        // --- Clouds ---
         this.clouds = this.add
             .image(width / 2, height / 2 - 50, "home_clouds")
             .setOrigin(0.5)
@@ -28,8 +32,8 @@ export class MainMenuScene extends Scene {
 
         this.cloudSpeed = 0.3;
 
-        // --- Overlay text (above clouds) ---
-        const homeText = this.add
+        // --- Overlay text ---
+        this.add
             .image(width / 2, height / 2 + 80, "home_text")
             .setOrigin(0.5)
             .setDepth(2)
@@ -38,9 +42,11 @@ export class MainMenuScene extends Scene {
         // --- Music ---
         if (this.sound.locked) {
             this.sound.once("unlocked", () => {
+                this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
                 this.game.musicManager.play(this, "menu_bgm");
             });
         } else {
+            this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
             this.game.musicManager.play(this, "menu_bgm");
         }
 
@@ -55,17 +61,8 @@ export class MainMenuScene extends Scene {
         };
 
         const createButton = (x, y, labelText, onClick) => {
-            // Outer border rectangle
-            const border = this.add
-                .rectangle(0, 0, 304, 64, 0xdcc89f)
-                .setDepth(3);
-
-            // Inner fill rectangle
-            const rect = this.add
-                .rectangle(0, 0, 300, 60, 0x7f1a02)
-                .setDepth(3);
-
-            // Label text
+            const border = this.add.rectangle(0, 0, 304, 64, 0xdcc89f).setDepth(3);
+            const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
             const label = this.add
                 .text(0, 0, labelText, {
                     fontSize: "24px",
@@ -75,14 +72,10 @@ export class MainMenuScene extends Scene {
                 .setOrigin(0.5)
                 .setDepth(3);
 
-            // Container holds border, fill, and label
-            const button = this.add
-                .container(x, y, [border, rect, label])
-                .setDepth(3);
+            const button = this.add.container(x, y, [border, rect, label]).setDepth(3);
 
             rect.setInteractive({ useHandCursor: true });
 
-            // Hover effect
             rect.on("pointerover", () => {
                 rect.setFillStyle(0xa8321a);
                 this.tweens.add({
@@ -103,9 +96,10 @@ export class MainMenuScene extends Scene {
                 });
             });
 
-            // Click effect
             rect.on("pointerdown", () => {
-                this.sound.play("selection", { volume: 1 });
+                if (this.game.sfxVolume > 0) {
+                    this.sound.play("selection", { volume: this.game.sfxVolume });
+                }
                 const tween = this.tweens.add({
                     targets: button,
                     scale: 0.9,
@@ -119,7 +113,6 @@ export class MainMenuScene extends Scene {
             return button;
         };
 
-        // Evenly center buttons vertically
         const totalButtons = options.length;
         const spacing = 100;
         const blockHeight = (totalButtons - 1) * spacing;
@@ -135,6 +128,12 @@ export class MainMenuScene extends Scene {
                         this.scene.start("SettingsScene");
                     } else {
                         selectedOptions.type = option;
+
+                        // 🔧 stop menu music cleanly before switching
+                        if (this.game.musicManager) {
+                            this.game.musicManager.stop();
+                        }
+
                         this.startGame(selectedOptions);
                     }
                 }
@@ -145,7 +144,6 @@ export class MainMenuScene extends Scene {
     update() {
         if (this.clouds) {
             this.clouds.x -= this.cloudSpeed;
-
             if (this.clouds.x < -this.clouds.displayWidth / 2) {
                 this.clouds.x = this.scale.width + this.clouds.displayWidth / 2;
             }
@@ -159,4 +157,3 @@ export class MainMenuScene extends Scene {
         });
     }
 }
-

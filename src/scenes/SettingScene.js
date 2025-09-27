@@ -2,7 +2,7 @@ import { Scene } from "phaser";
 
 // Default settings if no localStorage
 const DEFAULT_SETTINGS = {
-    difficulty: 1, // index: 1 => 'Standard'
+    difficulty: 1,
     volume: 1.0,
 };
 
@@ -18,6 +18,14 @@ export class SettingsScene extends Scene {
         this.volume = parseFloat(localStorage.getItem("volume"));
         if (isNaN(this.volume)) this.volume = DEFAULT_SETTINGS.volume;
 
+        // Store volume globally
+        this.game.sfxVolume = Math.max(0, Math.min(1, this.volume));
+
+        // Sync music volume immediately (important after refresh)
+        if (this.game.musicManager) {
+            this.game.musicManager.setVolume(this.game.sfxVolume);
+        }
+
         // Volume label
         this.add
             .text(40, 60, "Sound Volume", {
@@ -30,10 +38,10 @@ export class SettingsScene extends Scene {
             })
             .setOrigin(0, 0);
 
-        // Create Volume Slider at (40, 110)
+        // Create Volume Slider
         this.volumeSlider = this.createVolumeSlider(40, 110);
 
-        // Volume display below slider
+        // Volume display
         this.volumeDisplay = this.add
             .text(40, 150, `Volume: ${(this.volume * 100).toFixed(0)}%`, {
                 fontFamily: "Arial",
@@ -44,7 +52,7 @@ export class SettingsScene extends Scene {
             })
             .setOrigin(0, 0);
 
-        // Exit button (saves volume on exit)
+        // Exit button
         const btnY = height - 80;
         const midX = width / 2;
 
@@ -55,7 +63,7 @@ export class SettingsScene extends Scene {
 
         exitBtn.on("pointerdown", () => {
             this.confirmBox("Exit and save settings?", () => {
-                // Save current settings
+                // Save volume
                 localStorage.setItem("volume", this.volume);
 
                 // Update music volume immediately
@@ -63,8 +71,15 @@ export class SettingsScene extends Scene {
                     this.game.musicManager.setVolume(this.volume);
                 }
 
-                // Play a confirmation sound
-                this.sound.play("selection", { volume: this.volume });
+                // Update SFX volume
+                this.game.sfxVolume = Math.max(0, Math.min(1, this.volume));
+
+                // Play confirmation sound only if volume > 0
+                if (this.game.sfxVolume > 0) {
+                    this.sound.play("selection", {
+                        volume: this.game.sfxVolume,
+                    });
+                }
 
                 // Return to main menu
                 this.scene.start("MainMenuScene");
@@ -99,6 +114,7 @@ export class SettingsScene extends Scene {
         if (this.game.musicManager) {
             this.game.musicManager.setVolume(this.volume);
         }
+        this.game.sfxVolume = Math.max(0, Math.min(1, this.volume));
     }
 
     createStyledButton(x, y, label, styleOptions = {}) {
@@ -182,4 +198,3 @@ export class SettingsScene extends Scene {
         });
     }
 }
-
