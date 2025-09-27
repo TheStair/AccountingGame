@@ -9,7 +9,7 @@ export class TooltipManager {
 
         this.tooltipText = this.scene.add.text(0, 0, "", {
             fontFamily: "Arial",
-            fontSize: "16px",
+            fontSize: "25px",
             color: "#ffffff",
             wordWrap: { width: 200 },
         });
@@ -19,61 +19,51 @@ export class TooltipManager {
     }
 
     attachTo(target, text, options = {}) {
-        const maxWidth = options.maxWidth || 200;
-        const fontSize = options.fontSize || 16;
-        const padding = options.padding || 5;
+    const maxWidth = options.maxWidth || 200;
+    const fontSize = options.fontSize || 16;
+    const padding = options.padding || 5;
 
-        // Update text style
+    // Show tooltip on hover
+    target.setInteractive();
+    target.on("pointerover", () => {
+        // Update text & style for THIS target now (not during attach)
         this.tooltipText.setText(text);
         this.tooltipText.setStyle({
             fontSize: `${fontSize}px`,
             wordWrap: { width: maxWidth },
         });
 
-        // Update background size
+        // Resize background to current text
         const textBounds = this.tooltipText.getBounds();
         this.tooltipBackground.setSize(
             textBounds.width + padding * 2,
             textBounds.height + padding * 2
         );
 
-        // Reposition text inside background
+        // Place text inside background
         this.tooltipText.setPosition(padding, padding);
 
-        // Show tooltip on hover
-        target.setInteractive();
-        target.on("pointerover", () => {
-            const globalPos = target.getTopLeft
-                ? target.getTopLeft()
-                : { x: target.x, y: target.y };
+        // Position tooltip near target
+        const globalPos = target.getTopLeft
+            ? target.getTopLeft()
+            : { x: target.x, y: target.y };
 
-            // Calculate tooltip position
-            let x = globalPos.x;
-            let y = globalPos.y - this.tooltipBackground.height - 5;
+        let x = globalPos.x;
+        let y = globalPos.y - this.tooltipBackground.height - 5;
 
-            // Clamp to screen bounds
-            const cam = this.scene.cameras.main;
-            const screenWidth = cam.width;
-            const screenHeight = cam.height;
+        // Clamp to camera bounds
+        const cam = this.scene.cameras.main;
+        x = Phaser.Math.Clamp(x, 5, cam.width  - this.tooltipBackground.width  - 5);
+        y = Phaser.Math.Clamp(y, 5, cam.height - this.tooltipBackground.height - 5);
 
-            x = Phaser.Math.Clamp(
-                x,
-                5,
-                screenWidth - this.tooltipBackground.width - 5
-            );
-            y = Phaser.Math.Clamp(
-                y,
-                5,
-                screenHeight - this.tooltipBackground.height - 5
-            );
+        this.tooltipContainer.setPosition(x, y);
+        this.tooltipContainer.setVisible(true);
+    });
 
-            this.tooltipContainer.setPosition(x, y);
-            this.tooltipContainer.setVisible(true);
-        });
+    target.on("pointerout", () => {
+        this.tooltipContainer.setVisible(false);
+    });
+}
 
-        target.on("pointerout", () => {
-            this.tooltipContainer.setVisible(false);
-        });
-    }
 }
 
