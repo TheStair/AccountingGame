@@ -92,15 +92,15 @@ export class MainScene extends Scene {
                 ASSETS,
                 LIABITILITIES,
                 STAKEHOLDERS_EQUITY,
-                REVENUES,
-                EXPENSES,
+                EXPENSES,   // swapped
+                REVENUES,   // swapped
             ];
             this.config.belt_types = [
                 ASSETS,
                 LIABITILITIES,
                 STAKEHOLDERS_EQUITY,
-                REVENUES,
-                EXPENSES,
+                EXPENSES,   // swapped
+                REVENUES,   // swapped
             ];
             this.config.belt_labels = [1, 2, 3, 4, 5];
         }
@@ -488,11 +488,11 @@ export class MainScene extends Scene {
         // Move once per frame using normalized vector inside Player.move()
         this.player.move(dir);
         // Wrap edges
-const cam = this.cameras.main;
-if (this.player.x > cam.width) this.player.x = 0;
-else if (this.player.x < 0) this.player.x = cam.width;
-if (this.player.y > cam.height) this.player.y = 0;
-else if (this.player.y < 0) this.player.y = cam.height;
+        const cam = this.cameras.main;
+        if (this.player.x > cam.width) this.player.x = 0;
+        else if (this.player.x < 0) this.player.x = cam.width;
+        if (this.player.y > cam.height) this.player.y = 0;
+        else if (this.player.y < 0) this.player.y = cam.height;
 
         if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
             this.scene.pause();
