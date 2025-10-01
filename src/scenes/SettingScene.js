@@ -20,8 +20,14 @@ export class SettingsScene extends Scene {
 
         // Store volume globally
         this.game.sfxVolume = Math.max(0, Math.min(1, this.volume));
+        this.game.playSFX = (scene, key, config = {}) => {
+            scene.sound.play(key, {
+                ...config,
+                volume: this.game.sfxVolume,
+            });
+        };
 
-        // Sync music volume immediately (important after refresh)
+        // Sync music immediately
         if (this.game.musicManager) {
             this.game.musicManager.setVolume(this.game.sfxVolume);
         }
@@ -52,7 +58,7 @@ export class SettingsScene extends Scene {
             })
             .setOrigin(0, 0);
 
-        // Exit button
+        // Exit button (now just leaves the scene)
         const btnY = height - 80;
         const midX = width / 2;
 
@@ -62,28 +68,8 @@ export class SettingsScene extends Scene {
         });
 
         exitBtn.on("pointerdown", () => {
-            this.confirmBox("Exit and save settings?", () => {
-                // Save volume
-                localStorage.setItem("volume", this.volume);
-
-                // Update music volume immediately
-                if (this.game.musicManager) {
-                    this.game.musicManager.setVolume(this.volume);
-                }
-
-                // Update SFX volume
-                this.game.sfxVolume = Math.max(0, Math.min(1, this.volume));
-
-                // Play confirmation sound only if volume > 0
-                if (this.game.sfxVolume > 0) {
-                    this.sound.play("selection", {
-                        volume: this.game.sfxVolume,
-                    });
-                }
-
-                // Return to main menu
-                this.scene.start("MainMenuScene");
-            });
+            this.game.playSFX(this, "selection");
+            this.scene.start("MainMenuScene");
         });
     }
 
@@ -106,15 +92,25 @@ export class SettingsScene extends Scene {
     }
 
     updateVolume() {
+        // Update text
         if (this.volumeDisplay) {
             this.volumeDisplay.setText(
                 `Volume: ${(this.volume * 100).toFixed(0)}%`
             );
         }
+
+        localStorage.setItem("volume", this.volume);
+
         if (this.game.musicManager) {
             this.game.musicManager.setVolume(this.volume);
         }
         this.game.sfxVolume = Math.max(0, Math.min(1, this.volume));
+
+        this.sound.sounds.forEach((sfx) => {
+            if (sfx.isPlaying) {
+                sfx.setVolume(this.game.sfxVolume);
+            }
+        });
     }
 
     createStyledButton(x, y, label, styleOptions = {}) {
@@ -131,70 +127,5 @@ export class SettingsScene extends Scene {
             .setOrigin(0.5)
             .setInteractive();
     }
-
-    confirmBox(message, onConfirm) {
-        const centerX = this.cameras.main.centerX;
-        const centerY = this.cameras.main.centerY;
-
-        const boxWidth = 400;
-        const boxHeight = 180;
-
-        const box = this.add
-            .rectangle(centerX, centerY, boxWidth, boxHeight, 0x000000, 0.8)
-            .setStrokeStyle(2, 0xffffff)
-            .setDepth(9999);
-
-        const text = this.add
-            .text(centerX, centerY - 40, message, {
-                fontFamily: "Arial",
-                fontSize: "20px",
-                color: "#ffffff",
-                align: "center",
-                wordWrap: { width: boxWidth - 40 },
-                stroke: "#000000",
-                strokeThickness: 2,
-            })
-            .setOrigin(0.5)
-            .setDepth(9999);
-
-        const yesBtn = this.add
-            .text(centerX - 70, centerY + 30, "Yes", {
-                fontFamily: "Arial",
-                fontSize: "20px",
-                color: "#00ff00",
-                backgroundColor: "#333",
-                padding: { x: 15, y: 6 },
-            })
-            .setOrigin(0.5)
-            .setInteractive()
-            .setDepth(9999);
-
-        const noBtn = this.add
-            .text(centerX + 70, centerY + 30, "No", {
-                fontFamily: "Arial",
-                fontSize: "20px",
-                color: "#ff4444",
-                backgroundColor: "#333",
-                padding: { x: 15, y: 6 },
-            })
-            .setOrigin(0.5)
-            .setInteractive()
-            .setDepth(9999);
-
-        const destroyPopup = () => {
-            box.destroy();
-            text.destroy();
-            yesBtn.destroy();
-            noBtn.destroy();
-        };
-
-        yesBtn.on("pointerdown", () => {
-            destroyPopup();
-            onConfirm();
-        });
-
-        noBtn.on("pointerdown", () => {
-            destroyPopup();
-        });
-    }
 }
+

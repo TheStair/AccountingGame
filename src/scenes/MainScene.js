@@ -70,14 +70,14 @@ export class MainScene extends Scene {
         if (!this.normalBalance || !this.allSheet) {
             const binary = this.cache.binary.get("excelData");
             const workbook = XLSX.read(binary, { type: "array" });
-            this.normalBalance = XLSX.utils.sheet_to_json(
-                workbook.Sheets["Normal Balance Easy"] ?? {},
-                { header: 1 }
-            );
-            this.allSheet = XLSX.utils.sheet_to_json(
-                workbook.Sheets["All"] ?? {},
-                { header: 1 }
-            );
+            this.normalBalance = XLSX.utils
+                .sheet_to_json(workbook.Sheets["Normal Balance Easy"] ?? {}, {
+                    header: 1,
+                })
+                .slice(1);
+            this.allSheet = XLSX.utils
+                .sheet_to_json(workbook.Sheets["All"] ?? {}, { header: 1 })
+                .slice(1);
         }
 
         const NUM_BALLS = Math.ceil(
@@ -95,15 +95,15 @@ export class MainScene extends Scene {
                 ASSETS,
                 LIABITILITIES,
                 STOCKHOLDERS_EQUITY,
-                EXPENSES,   // swapped
-                REVENUES,   // swapped
+                EXPENSES, // swapped
+                REVENUES, // swapped
             ];
             this.config.belt_types = [
                 ASSETS,
                 LIABITILITIES,
                 STOCKHOLDERS_EQUITY,
-                EXPENSES,   // swapped
-                REVENUES,   // swapped
+                EXPENSES, // swapped
+                REVENUES, // swapped
             ];
             this.config.belt_labels = [1, 2, 3, 4, 5];
         }
@@ -188,29 +188,29 @@ export class MainScene extends Scene {
     }
 
     checkForBall(ball, basket) {
-    if (ball.state !== "picked" && ball.pit_number == null) {
-        if (ball.type === basket.type.toLowerCase()) {
-            this.points += ball.been_in_wrong_basket
-                ? RIGHT_NOT_FIRST_TIME_SCORE
-                : RIGHT_FIRST_TIME_SCORE;
-            this.scene.get("HudScene").update_points(this.points);
-            ball.destroyBall();
-            this.answer_stats.get(basket.type).correct += 1;
+        if (ball.state !== "picked" && ball.pit_number == null) {
+            if (ball.type === basket.type.toLowerCase()) {
+                this.points += ball.been_in_wrong_basket
+                    ? RIGHT_NOT_FIRST_TIME_SCORE
+                    : RIGHT_FIRST_TIME_SCORE;
+                this.scene.get("HudScene").update_points(this.points);
+                ball.destroyBall();
+                this.answer_stats.get(basket.type).correct += 1;
 
-            // ✅ Only play if volume > 0
-            if (this.game.sfxVolume > 0) {
-                this.sound.play("correct", { volume: this.game.sfxVolume });
+                // ✅ Only play if volume > 0
+                if (this.game.sfxVolume > 0) {
+                    this.sound.play("correct", { volume: this.game.sfxVolume });
+                }
+            } else {
+                // ✅ Only play if volume > 0
+                if (this.game.sfxVolume > 0) {
+                    this.sound.play("error", { volume: this.game.sfxVolume });
+                }
+                ball.goToPit();
+                this.answer_stats.get(basket.type).incorrect += 1;
             }
-        } else {
-            // ✅ Only play if volume > 0
-            if (this.game.sfxVolume > 0) {
-                this.sound.play("error", { volume: this.game.sfxVolume });
-            }
-            ball.goToPit();
-            this.answer_stats.get(basket.type).incorrect += 1;
         }
     }
-}
 
     getRandomNBElements(total) {
         const credits = this.normalBalance
@@ -283,16 +283,16 @@ export class MainScene extends Scene {
 
     create() {
         if (this.sound.locked) {
-    this.sound.once("unlocked", () => {
-        // Always sync music volume from settings before playing
-        this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-        this.game.musicManager.play(this, "game_bgm");
-    });
-} else {
-    // Always sync music volume from settings before playing
-    this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-    this.game.musicManager.play(this, "game_bgm");
-}
+            this.sound.once("unlocked", () => {
+                // Always sync music volume from settings before playing
+                this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
+                this.game.musicManager.play(this, "game_bgm");
+            });
+        } else {
+            // Always sync music volume from settings before playing
+            this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
+            this.game.musicManager.play(this, "game_bgm");
+        }
         this.add.image(0, 0, "background").setOrigin(0, 0);
 
         // conveyor belts + baskets
