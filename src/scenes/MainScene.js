@@ -8,19 +8,20 @@ import * as XLSX from "xlsx";
 
 export const base_url = import.meta.env.VITE_API_URL;
 
-const DEBIT = "Debit";
-const CREDIT = "Credit";
+const DEBIT = "Debits";
+const CREDIT = "Credits";
 const ASSETS = "Assets";
-const LIABITILITIES = "Liabilities";
-const STOCKHOLDERS_EQUITY = "Stockholders' Equity";
-const EXPENSES = "Expenses";
-const REVENUES = "Revenues";
+const LIABILITIES = "Liabilities";
+
+const EXPENSES = "Expenses/Losses";
+const REVENUES = "Revenues/Gains";
+const STOCKHOLDERS_EQUITY = "Stockholders Equity";
 const DESCRIPTION_MAP = new Map([
     [DEBIT, "Debit"],
     [CREDIT, "Credit"],
     [ASSETS, "A present right of an entity to an economic benefit."],
     [
-        LIABITILITIES,
+        LIABILITIES,
         "A present obligation that requires an entity to transferor otherwise provide economic benefits to others.",
     ],
     [
@@ -71,7 +72,7 @@ export class MainScene extends Scene {
             const binary = this.cache.binary.get("excelData");
             const workbook = XLSX.read(binary, { type: "array" });
             this.normalBalance = XLSX.utils
-                .sheet_to_json(workbook.Sheets["Normal Balance Easy"] ?? {}, {
+                .sheet_to_json(workbook.Sheets["Normal Balance - All"] ?? {}, {
                     header: 1,
                 })
                 .slice(1);
@@ -93,17 +94,17 @@ export class MainScene extends Scene {
             this.elements = this.getRandomAllElements(NUM_BALLS);
             this.config.basket_types = [
                 ASSETS,
-                LIABITILITIES,
-                STOCKHOLDERS_EQUITY,
+                LIABILITIES,
                 EXPENSES, // swapped
                 REVENUES, // swapped
+                STOCKHOLDERS_EQUITY,
             ];
             this.config.belt_types = [
                 ASSETS,
-                LIABITILITIES,
-                STOCKHOLDERS_EQUITY,
+                LIABILITIES,
                 EXPENSES, // swapped
-                REVENUES, // swapped
+                REVENUES,
+                STOCKHOLDERS_EQUITY, // swapped
             ];
             this.config.belt_labels = [1, 2, 3, 4, 5];
         }
@@ -189,7 +190,7 @@ export class MainScene extends Scene {
 
     checkForBall(ball, basket) {
         if (ball.state !== "picked" && ball.pit_number == null) {
-            if (ball.type === basket.type.toLowerCase()) {
+            if (ball.type === basket.type) {
                 this.points += ball.been_in_wrong_basket
                     ? RIGHT_NOT_FIRST_TIME_SCORE
                     : RIGHT_FIRST_TIME_SCORE;
@@ -222,27 +223,29 @@ export class MainScene extends Scene {
         const [creditNum, debitNum] = this.generateRandomNumbers(
             total,
             2,
-            false
+            false,
+            0.4
         );
         const creditSamples = this.sample(credits, creditNum).map((name) => ({
             name,
-            type: "credit",
+            type: "Credits",
         }));
         const debitSamples = this.sample(debits, debitNum).map((name) => ({
             name,
-            type: "debit",
+            type: "Debits",
         }));
         return this.shuffle([...creditSamples, ...debitSamples]);
     }
 
     getRandomAllElements(total) {
         const typeNames = [
-            "assets",
-            "liabilities",
-            "Stockholders' Equity",
-            "expenses",
-            "revenues",
+            ASSETS,
+            LIABILITIES,
+            EXPENSES,
+            REVENUES,
+            STOCKHOLDERS_EQUITY,
         ];
+
         const colCount = this.allSheet[0]?.length ?? 0;
         const typeNums = this.generateRandomNumbers(total, colCount, false);
 
@@ -268,13 +271,25 @@ export class MainScene extends Scene {
     shuffle(arr) {
         return arr.slice().sort(() => Math.random() - 0.5);
     }
-    generateRandomNumbers(sum, count, equal = true) {
-        if (equal) return Array(count).fill(Math.ceil(sum / count));
+    generateRandomNumbers(sum, count, equal = true, ratio = 0.4) {
+        if (equal) {
+            return Array(count).fill(Math.ceil(sum / count));
+        }
+
+        if (count === 2) {
+            const min = Math.floor(sum * ratio);
+            const max = sum - min;
+            const first = Math.floor(Math.random() * (max - min + 1)) + min;
+            const second = sum - first;
+            return [first, second];
+        }
         const points = Array.from({ length: count - 1 }, () =>
             Math.floor(Math.random() * (sum - count + 1))
         ).sort((a, b) => a - b);
+
         points.unshift(0);
         points.push(sum);
+
         return Array.from(
             { length: count },
             (_, i) => points[i + 1] - points[i]
