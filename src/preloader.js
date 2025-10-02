@@ -20,6 +20,8 @@ export class Preloader extends Phaser.Scene {
         this.load.image("home_bg", "HomeScreen.png");
         this.load.image("home_clouds", "HomeScreenClouds.png");
         this.load.image("home_text", "HomeScreenText.png");
+        this.load.image("volumeIcon", "volume.png");
+
 
         // Create a loading text
         const loadingText = this.add

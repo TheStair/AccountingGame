@@ -50,18 +50,18 @@ export class MainMenuScene extends Scene {
             this.game.musicManager.play(this, "menu_bgm");
         }
 
-        // --- Buttons ---
-        const options = ["debit_credit", "accounting", "settings"];
+        // --- Menu Buttons (no settings) ---
+        const options = ["debit_credit", "accounting"];
         const selectedOptions = { type: "debit_credit" };
 
         const get_option_text = (option) => {
             if (option === "debit_credit") return "Debit vs Credit";
             if (option === "accounting") return "The Five Building Blocks";
-            if (option === "settings") return "Settings";
         };
 
         const createButton = (x, y, labelText, onClick) => {
-            const border = this.add.rectangle(0, 0, 304, 64, 0xdcc89f).setDepth(3);
+            const border = this.add.rectangle(0, 0, 304, 64, 0x7f1a02).setDepth(3);
+            border.setStrokeStyle(3, 0xdcc89f);
             const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
             const label = this.add
                 .text(0, 0, labelText, {
@@ -78,22 +78,12 @@ export class MainMenuScene extends Scene {
 
             rect.on("pointerover", () => {
                 rect.setFillStyle(0xa8321a);
-                this.tweens.add({
-                    targets: button,
-                    scale: 1.05,
-                    duration: 150,
-                    ease: "Power1",
-                });
+                this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
             });
 
             rect.on("pointerout", () => {
                 rect.setFillStyle(0x7f1a02);
-                this.tweens.add({
-                    targets: button,
-                    scale: 1,
-                    duration: 150,
-                    ease: "Power1",
-                });
+                this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
             });
 
             rect.on("pointerdown", () => {
@@ -119,25 +109,34 @@ export class MainMenuScene extends Scene {
         const startY = height / 2 - blockHeight / 2;
 
         options.forEach((option, index) => {
-            createButton(
-                width / 2,
-                startY + index * spacing,
-                get_option_text(option),
-                () => {
-                    if (option === "settings") {
-                        this.scene.start("SettingsScene");
-                    } else {
-                        selectedOptions.type = option;
-
-                        // 🔧 stop menu music cleanly before switching
-                        if (this.game.musicManager) {
-                            this.game.musicManager.stop();
-                        }
-
-                        this.startGame(selectedOptions);
-                    }
+            createButton(width / 2, startY + index * spacing, get_option_text(option), () => {
+                selectedOptions.type = option;
+                if (this.game.musicManager) {
+                    this.game.musicManager.stop();
                 }
-            );
+                this.startGame(selectedOptions);
+            });
+        });
+
+        // --- Volume Button (bigger circular, top-left) ---
+        this.volumeButton = this.add.circle(35, 35, 20, 0x7f1a02).setDepth(5).setInteractive();
+        this.volumeButton.setStrokeStyle(2, 0xdcc89f);
+
+        // --- Volume Icon (bigger to fit) ---
+        this.volumeIcon = this.add.image(35, 35, "volumeIcon")
+            .setDisplaySize(24, 24) // fits inside 40px diameter button
+            .setDepth(6);
+
+        // Hover effect for button
+        this.volumeButton.on("pointerover", () => {
+            this.volumeButton.setFillStyle(0xa8321a);
+        });
+        this.volumeButton.on("pointerout", () => {
+            this.volumeButton.setFillStyle(0x7f1a02);
+        });
+
+        this.volumeButton.on("pointerdown", () => {
+            this.toggleVolumeSlider();
         });
     }
 
@@ -155,5 +154,60 @@ export class MainMenuScene extends Scene {
         this.cameras.main.once("camerafadeoutcomplete", () => {
             this.scene.start("MainScene", { type: selectedOptions.type });
         });
+    }
+
+    toggleVolumeSlider() {
+        if (this.volumeSliderBox) {
+            this.volumeSliderBox.destroy();
+            this.volumeSliderTrack.destroy();
+            this.volumeSliderKnob.destroy();
+            this.volumeSliderBox = null;
+            this.volumeSliderTrack = null;
+            this.volumeSliderKnob = null;
+        } else {
+            // --- Slider Box ---
+            const boxWidth = 40;
+            const boxHeight = 120;
+            const boxX = this.volumeButton.x;
+            const boxY = this.volumeButton.y + boxHeight / 2 + 30;
+
+            this.volumeSliderBox = this.add.rectangle(boxX, boxY, boxWidth, boxHeight, 0x7f1a02)
+                .setOrigin(0.5)
+                .setDepth(3)
+                .setStrokeStyle(2, 0xdcc89f);
+
+            // --- Track ---
+            const sliderX = boxX;
+            const sliderY = boxY;
+            this.volumeSliderTrack = this.add.rectangle(sliderX, sliderY, 4, 100, 0xdcc89f).setDepth(4);
+
+            // --- Knob ---
+            let knobY = sliderY + 50 - this.game.sfxVolume * 100;
+            this.volumeSliderKnob = this.add.circle(sliderX, knobY, 8, 0xdcc89f)
+                .setDepth(5)
+                .setInteractive({ draggable: true });
+
+            this.input.setDraggable(this.volumeSliderKnob);
+
+            // Hover highlight for knob
+            this.volumeSliderKnob.on("pointerover", () => {
+                this.volumeSliderKnob.setFillStyle(0xf5deb3); // lighter beige
+            });
+            this.volumeSliderKnob.on("pointerout", () => {
+                this.volumeSliderKnob.setFillStyle(0xdcc89f); // reset to beige
+            });
+
+            // Drag update
+            this.volumeSliderKnob.on("drag", (pointer, dragX, dragY) => {
+                let clampedY = Phaser.Math.Clamp(dragY, sliderY - 50, sliderY + 50);
+                this.volumeSliderKnob.y = clampedY;
+
+                let newVolume = 1 - ((clampedY - (sliderY - 50)) / 100);
+                this.game.sfxVolume = newVolume;
+                localStorage.setItem("volume", newVolume);
+                this.sound.volume = newVolume;
+                this.game.musicManager.setVolume(newVolume);
+            });
+        }
     }
 }
