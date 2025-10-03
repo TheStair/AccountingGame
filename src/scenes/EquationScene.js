@@ -1,4 +1,5 @@
 import { Scene } from "phaser";
+import * as XLSX from "xlsx";
 
 export class EquationScene extends Scene {
     constructor() {
@@ -12,23 +13,18 @@ export class EquationScene extends Scene {
         this.questionsPerPhase = 5;
 
         // Phase time limits (seconds)
-        this.phaseTimes = {
-            1: 60,
-            2: 120,
-            3: 180
-        };
+        this.phaseTimes = { 1: 60, 2: 120, 3: 180 };
 
         // Score system by phase
-        this.phasePoints = {
-            1: 100,
-            2: 200,
-            3: 300
-        };
+        this.phasePoints = { 1: 100, 2: 200, 3: 300 };
 
         this.score = 0;
 
-        // Will hold the 5 randomized questions for the current phase
-        this.phaseQuestions = null;
+        // Pools built from Excel for each phase
+        this.phasePools = { 1: [], 2: [], 3: [] };
+
+        // Build pools from Excel
+        this.buildPoolsFromExcel();
     }
 
     create() {
@@ -58,18 +54,257 @@ export class EquationScene extends Scene {
         this.showPhaseIntro();
     }
 
+    // --------------------------------------------------------------------------------
+    // Excel wiring
+    // Phase 1: F question, correct is green-highlighted among C/D/E (or H marker/comment)
+    // Phase 2: G question (Medium)
+    // Phase 3: G question (Hard)
+    // --------------------------------------------------------------------------------
+    buildPoolsFromExcel() {
+        try {
+            const bin = this.cache.binary.get("excelData");
+            if (!bin) {
+                console.warn("EquationScene: no excelData in cache");
+                return;
+            }
+
+            // Enable style + comment reading to improve green / "correct" detection
+            const wb = XLSX.read(bin, {
+                type: "array",
+                cellStyles: true,
+                cellFormula: true,
+                cellNF: true,
+                cellDates: true,
+                cellText: false,
+                sheetStubs: true,
+                cellComments: true,
+            });
+
+            // --- PHASE 1 (Easy): F question, green among C/D/E is correct ---
+            this.phasePools[1] = this.extractEasyPhase(
+                wb.Sheets["A=L+SE - Easy"],
+                { qCol: "F", start: 4, end: 23, answerCols: ["C", "D", "E"], markerCol: "H" } // H is optional helper marker
+            );
+
+            // --- PHASE 2 (Medium): G question ---
+            this.phasePools[2] = this.extractQuestionOnly(
+                wb.Sheets["A=L+SE - Medium"],
+                { qCol: "G", start: 4, end: 23 }
+            );
+
+            // --- PHASE 3 (Hard): G question ---
+            this.phasePools[3] = this.extractQuestionOnly(
+                wb.Sheets["A=L+SE - Hard"],
+                { qCol: "G", start: 4, end: 23 }
+            );
+        } catch (e) {
+            console.warn("EquationScene: Excel parse failed", e);
+        }
+    }
+
+    extractEasyPhase(sheet, cfg) {
+        if (!sheet) return [];
+        const out = [];
+
+        for (let r = cfg.start; r <= cfg.end; r++) {
+            const q = this.cellToString(sheet[`${cfg.qCol}${r}`]);
+            if (!q) continue;
+
+            // Grab numeric candidates from C/D/E
+            const candVals = cfg.answerCols.map(col => this.cellToNumber(sheet[`${col}${r}`]));
+            const candAddrs = cfg.answerCols.map(col => `${col}${r}`);
+
+            // 1) Try explicit marker column (H) if present: C/D/E or 1/2/3
+            let correctIdx = this.correctIndexFromMarker(sheet, cfg.markerCol, r);
+
+            // 2) Try cell comments containing "correct"
+            if (correctIdx === -1) {
+                correctIdx = this.correctIndexFromComments(sheet, candAddrs);
+            }
+
+            // 3) Try fill color (green-ish)
+            if (correctIdx === -1) {
+                correctIdx = this.correctIndexFromGreenFill(sheet, candAddrs);
+            }
+
+            // 4) Fallback: first numeric value
+            if (correctIdx === -1) {
+                correctIdx = candVals.findIndex(v => typeof v === "number" && !isNaN(v));
+                if (correctIdx === -1) {
+                    console.warn(`[Easy r${r}] No numeric answers in C/D/E; skipping`);
+                    continue;
+                }
+                console.warn(`[Easy r${r}] Correct marker not found; using first numeric in C/D/E (idx ${correctIdx})`);
+            }
+
+            const correctVal = candVals[correctIdx];
+            if (typeof correctVal !== "number" || isNaN(correctVal)) {
+                console.warn(`[Easy r${r}] Selected correct cell is not numeric; skipping`);
+                continue;
+            }
+
+            // Generate 3 decoys near the correct value (unique, non-negative, != correct)
+            const decoys = this.generateDecoysNear(correctVal, 3);
+            const answersRaw = [correctVal, ...decoys].map(n => this.formatNumber(n));
+
+            // Shuffle and compute new correct index
+            const shuffled = answersRaw.slice();
+            Phaser.Utils.Array.Shuffle(shuffled);
+            const correctText = this.formatNumber(correctVal);
+            const finalIdx = Math.max(0, shuffled.findIndex(a => a === correctText));
+
+            out.push({
+                question: q,
+                answers: shuffled,
+                correctIndex: finalIdx,
+            });
+        }
+
+        return out;
+    }
+
+    extractQuestionOnly(sheet, cfg) {
+        if (!sheet) return [];
+        const out = [];
+        for (let r = cfg.start; r <= cfg.end; r++) {
+            const q = this.cellToString(sheet[`${cfg.qCol}${r}`]);
+            if (!q) continue;
+
+            // Placeholder answers until you define columns for Medium/Hard
+            const answers = ["Option A", "Option B", "Option C", "Option D"];
+            const correctIndex = Phaser.Math.Between(0, 3);
+
+            out.push({ question: q, answers, correctIndex });
+        }
+        return out;
+        }
+
+    // ----- Helpers for detection -----
+    cellToString(cell) {
+        if (!cell) return "";
+        if (cell.w != null) return String(cell.w).trim();
+        if (cell.v != null) return String(cell.v).trim();
+        return "";
+    }
+
+    cellToNumber(cell) {
+        if (!cell) return NaN;
+        if (typeof cell.v === "number") return cell.v;
+        if (typeof cell.v === "string") {
+            const cleaned = cell.v.replace(/[, ]+/g, "");
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? NaN : n;
+        }
+        return NaN;
+    }
+
+    correctIndexFromMarker(sheet, markerCol, row) {
+        if (!markerCol) return -1;
+        const marker = this.cellToString(sheet[`${markerCol}${row}`]).toUpperCase();
+        if (!marker) return -1;
+
+        // Accept "C", "D", "E"
+        if (marker === "C") return 0;
+        if (marker === "D") return 1;
+        if (marker === "E") return 2;
+
+        // Accept 1/2/3 (1-based)
+        if (marker === "1") return 0;
+        if (marker === "2") return 1;
+        if (marker === "3") return 2;
+
+        return -1;
+    }
+
+    correctIndexFromComments(sheet, addrs) {
+        for (let i = 0; i < addrs.length; i++) {
+            const c = sheet[addrs[i]];
+            const comments = c && c.c;
+            if (!Array.isArray(comments)) continue;
+            const hasCorrect = comments.some(cm =>
+                typeof cm.t === "string" && cm.t.toLowerCase().includes("correct")
+            );
+            if (hasCorrect) return i;
+        }
+        return -1;
+    }
+
+    correctIndexFromGreenFill(sheet, addrs) {
+        let bestIdx = -1;
+        let bestScore = -Infinity;
+
+        for (let i = 0; i < addrs.length; i++) {
+            const c = sheet[addrs[i]];
+            const score = this.greenScore(c);
+            if (score > bestScore) {
+                bestScore = score;
+                bestIdx = i;
+            }
+        }
+
+        // Require the green dominance to be meaningful
+        return bestScore > 20 ? bestIdx : -1;
+    }
+
+    greenScore(cell) {
+        try {
+            const rgb =
+                cell?.s?.fill?.fgColor?.rgb ||
+                cell?.s?.fgColor?.rgb ||
+                cell?.s?.bgColor?.rgb;
+            if (!rgb || typeof rgb !== "string") return -Infinity;
+
+            const hex = rgb.slice(-6);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            // Score by G - average(R,B)
+            return g - (r + b) / 2;
+        } catch {
+            return -Infinity;
+        }
+    }
+
+    generateDecoysNear(correct, count) {
+        const decoys = new Set();
+        const abs = Math.max(1, Math.abs(correct));
+        const stepBase = Math.pow(10, Math.max(0, Math.floor(Math.log10(abs)) - 1));
+
+        while (decoys.size < count) {
+            const pct = (5 + Math.random() * 20) / 100; // 5–25%
+            const sign = Math.random() < 0.5 ? -1 : 1;
+            let val = correct * (1 + sign * pct);
+
+            // Round to a friendly step
+            const step = Math.max(1, Math.round(stepBase));
+            val = Math.round(val / step) * step;
+
+            if (val !== correct && val >= 0) decoys.add(val);
+        }
+        return Array.from(decoys);
+    }
+
+    formatNumber(n) {
+        try { return Number(n).toLocaleString(); } catch { return String(n); }
+    }
+
+    // --------------------------------------------------------------------------------
+    // Your existing flow (unchanged): phase intro → countdown → timer → questions
+    // --------------------------------------------------------------------------------
+
     // Prepare a fresh, randomized set of 5 questions for the current phase
     preparePhaseQuestions() {
-        const key = `phase${this.currentPhase}`;
-        const all = (this.game.questionData && this.game.questionData[key]) ? [...this.game.questionData[key]] : [];
+        const pool = (this.phasePools[this.currentPhase] || []).slice();
+        Phaser.Utils.Array.Shuffle(pool);
+        this.phaseQuestions = pool.slice(0, this.questionsPerPhase);
 
-        // Shuffle and take up to questionsPerPhase
-        Phaser.Utils.Array.Shuffle(all);
-        this.phaseQuestions = all.slice(0, this.questionsPerPhase);
-
-        // Fallback if the sheet was empty for some reason
         if (this.phaseQuestions.length === 0) {
-            this.phaseQuestions = Array.from({ length: this.questionsPerPhase }, (_, i) => `Question ${i + 1}`);
+            // Fallback stubs
+            this.phaseQuestions = Array.from({ length: this.questionsPerPhase }, (_, i) => ({
+                question: `Question ${i + 1} of Phase ${this.currentPhase}`,
+                answers: ["Option A", "Option B", "Option C", "Option D"],
+                correctIndex: Phaser.Math.Between(0, 3)
+            }));
         }
     }
 
@@ -137,11 +372,9 @@ export class EquationScene extends Scene {
         const { width, height } = this.scale;
         let timeLeft = this.phaseTimes[this.currentPhase];
 
-        // If old timer exists, clear it
         if (this.timerEvent) this.timerEvent.remove();
         if (this.timerText) this.timerText.destroy();
 
-        // Show timer above question area (centered)
         this.timerText = this.add.text(width / 2, height / 5 - 50, this.formatTime(timeLeft), {
             fontSize: "32px",
             fontFamily: '"Jersey 10", sans-serif',
@@ -150,17 +383,13 @@ export class EquationScene extends Scene {
             strokeThickness: 4
         }).setOrigin(0.5);
 
-        // Countdown logic
         this.timerEvent = this.time.addEvent({
             delay: 1000,
             repeat: timeLeft - 1,
             callback: () => {
                 timeLeft--;
                 this.timerText.setText(this.formatTime(timeLeft));
-
-                if (timeLeft <= 0) {
-                    this.endPhase();
-                }
+                if (timeLeft <= 0) this.endPhase();
             }
         });
     }
@@ -171,12 +400,14 @@ export class EquationScene extends Scene {
         return `${minutes}:${partInSeconds.toString().padStart(2, "0")}`;
     }
 
-    // --- Show a question with 2x2 answers ---
+    // --- Show a question with 2x2 answers (from prepared pool) ---
     showQuestion() {
         const { width, height } = this.scale;
 
-        // Pull question text from our pre-randomized list for the phase
-        const questionText = this.phaseQuestions[this.currentQuestion] ?? `Question ${this.currentQuestion + 1} of Phase ${this.currentPhase}`;
+        const item = this.phaseQuestions?.[this.currentQuestion];
+        const questionText = item?.question ?? `Question ${this.currentQuestion + 1} of Phase ${this.currentPhase}`;
+        const answers = item?.answers ?? ["Option A", "Option B", "Option C", "Option D"];
+        const correctIndex = typeof item?.correctIndex === "number" ? item.correctIndex : Phaser.Math.Between(0, 3);
 
         // Question box
         this.questionBox = this.add.rectangle(width / 2, height / 4, width * 0.8, 100, 0xdcc89f)
@@ -189,12 +420,7 @@ export class EquationScene extends Scene {
             wordWrap: { width: width * 0.75 }
         }).setOrigin(0.5);
 
-        // --- 2x2 answer grid (kept exactly like your layout) ---
-        // For now we still use placeholder answers; once answers exist in Excel,
-        // we’ll replace this with the real options.
-        const answers = ["Option A", "Option B", "Option C", "Option D"];
-        const correctIndex = Phaser.Math.Between(0, 3); // placeholder correctness
-
+        // 2x2 grid
         this.answerButtons = [];
         const colX = [width / 4, (3 * width) / 4];
         const rowY = [height / 2, height / 2 + 120];
@@ -209,7 +435,7 @@ export class EquationScene extends Scene {
                 .setStrokeStyle(3, 0x7f1a02)
                 .setInteractive({ useHandCursor: true });
 
-            const text = this.add.text(btnX, btnY, answer, {
+            const text = this.add.text(btnX, btnY, String(answer), {
                 fontSize: "22px",
                 fontFamily: '"Jersey 10", sans-serif',
                 color: "#7f1a02",
@@ -223,7 +449,7 @@ export class EquationScene extends Scene {
             });
 
             border.on("pointerdown", () => {
-                if (this.answered) return; // prevent multiple answers
+                if (this.answered) return;
                 this.answered = true;
 
                 if (i === correctIndex) {
@@ -234,17 +460,12 @@ export class EquationScene extends Scene {
                     border.setFillStyle(0xaa0000); // red
                 }
 
-                // Disable other buttons
+                // Disable others
                 this.answerButtons.forEach((btn, idx) => {
-                    if (idx !== i) {
-                        btn.border.disableInteractive();
-                    }
+                    if (idx !== i) btn.border.disableInteractive();
                 });
 
-                // Move to next question after short delay
-                this.time.delayedCall(1000, () => {
-                    this.nextQuestion();
-                });
+                this.time.delayedCall(1000, () => this.nextQuestion());
             });
 
             this.answerButtons.push({ border, text });
@@ -255,7 +476,6 @@ export class EquationScene extends Scene {
 
     // --- Next Question ---
     nextQuestion() {
-        // Clear current question UI
         if (this.questionBox) this.questionBox.destroy();
         if (this.questionText) this.questionText.destroy();
         if (this.answerButtons) {
@@ -276,7 +496,6 @@ export class EquationScene extends Scene {
 
     // --- End of Phase ---
     endPhase() {
-        // Clear UI
         if (this.questionBox) this.questionBox.destroy();
         if (this.questionText) this.questionText.destroy();
         if (this.answerButtons) {
@@ -286,14 +505,12 @@ export class EquationScene extends Scene {
             });
         }
 
-        // Clear timer
         if (this.timerEvent) this.timerEvent.remove();
         if (this.timerText) this.timerText.destroy();
 
-        // Prepare for next phase
         this.currentPhase++;
         this.currentQuestion = 0;
-        this.phaseQuestions = null; // force re-randomize next phase’s questions
+        this.phaseQuestions = null; // re-randomize next phase
 
         if (this.currentPhase <= this.totalPhases) {
             this.showPhaseIntro();
