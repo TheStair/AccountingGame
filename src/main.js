@@ -4,6 +4,7 @@ import { GameOverScene } from "./scenes/GameOverScene";
 import { HudScene } from "./scenes/HudScene";
 import { MainScene } from "./scenes/MainScene";
 import { MenuScene } from "./scenes/MenuScene";
+import { EquationScene } from "./scenes/EquationScene";
 import { SplashScene } from "./scenes/SplashScene";
 import { MainMenuScene } from "./scenes/MainMenuScene";
 import { PauseScene } from "./scenes/PauseScene";
@@ -46,6 +47,7 @@ const config = {
         MainMenuScene,
         PauseScene,
         SettingsScene,
+        EquationScene,
     ]
 };
 

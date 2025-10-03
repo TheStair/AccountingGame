@@ -23,7 +23,7 @@ export class MainMenuScene extends Scene {
             .setDisplaySize(width, height)
             .setDepth(0);
 
-        // --- Clouds ---
+        // --- Clouds (single sprite, Pac-Man wrap) ---
         this.clouds = this.add
             .image(width / 2, height / 2 - 50, "home_clouds")
             .setOrigin(0.5)
@@ -50,13 +50,14 @@ export class MainMenuScene extends Scene {
             this.game.musicManager.play(this, "menu_bgm");
         }
 
-        // --- Menu Buttons (no settings) ---
-        const options = ["debit_credit", "accounting"];
+        // --- Menu Buttons ---
+        const options = ["debit_credit", "accounting", "equation"];
         const selectedOptions = { type: "debit_credit" };
 
         const get_option_text = (option) => {
             if (option === "debit_credit") return "Debit vs Credit";
             if (option === "accounting") return "The Five Building Blocks";
+            if (option === "equation") return "Accounting Equation";
         };
 
         const createButton = (x, y, labelText, onClick) => {
@@ -114,17 +115,21 @@ export class MainMenuScene extends Scene {
                 if (this.game.musicManager) {
                     this.game.musicManager.stop();
                 }
-                this.startGame(selectedOptions);
+                if (option === "equation") {
+                    this.startEquationMode();
+                } else {
+                    this.startGame(selectedOptions);
+                }
             });
         });
 
-        // --- Volume Button (bigger circular, top-left) ---
+        // --- Volume Button (top-left) ---
         this.volumeButton = this.add.circle(35, 35, 20, 0x7f1a02).setDepth(5).setInteractive();
         this.volumeButton.setStrokeStyle(2, 0xdcc89f);
 
-        // --- Volume Icon (bigger to fit) ---
+        // --- Volume Icon ---
         this.volumeIcon = this.add.image(35, 35, "volumeIcon")
-            .setDisplaySize(24, 24) // fits inside 40px diameter button
+            .setDisplaySize(24, 24)
             .setDepth(6);
 
         // Hover effect for button
@@ -143,8 +148,13 @@ export class MainMenuScene extends Scene {
     update() {
         if (this.clouds) {
             this.clouds.x -= this.cloudSpeed;
-            if (this.clouds.x < -this.clouds.displayWidth / 2) {
+
+            // Pac-Man wrap
+            if (this.clouds.x + this.clouds.displayWidth / 2 < 0) {
                 this.clouds.x = this.scale.width + this.clouds.displayWidth / 2;
+            }
+            if (this.clouds.x - this.clouds.displayWidth / 2 > this.scale.width) {
+                this.clouds.x = -this.clouds.displayWidth / 2;
             }
         }
     }
@@ -153,6 +163,14 @@ export class MainMenuScene extends Scene {
         this.cameras.main.fadeOut(500, 0, 0, 0);
         this.cameras.main.once("camerafadeoutcomplete", () => {
             this.scene.start("MainScene", { type: selectedOptions.type });
+        });
+    }
+
+    startEquationMode() {
+        // fade out like the other modes (black), not special brown
+        this.cameras.main.fadeOut(500, 0, 0, 0);
+        this.cameras.main.once("camerafadeoutcomplete", () => {
+            this.scene.start("EquationScene"); 
         });
     }
 
@@ -165,7 +183,6 @@ export class MainMenuScene extends Scene {
             this.volumeSliderTrack = null;
             this.volumeSliderKnob = null;
         } else {
-            // --- Slider Box ---
             const boxWidth = 40;
             const boxHeight = 120;
             const boxX = this.volumeButton.x;
@@ -176,28 +193,26 @@ export class MainMenuScene extends Scene {
                 .setDepth(3)
                 .setStrokeStyle(2, 0xdcc89f);
 
-            // --- Track ---
             const sliderX = boxX;
             const sliderY = boxY;
             this.volumeSliderTrack = this.add.rectangle(sliderX, sliderY, 4, 100, 0xdcc89f).setDepth(4);
 
-            // --- Knob ---
             let knobY = sliderY + 50 - this.game.sfxVolume * 100;
             this.volumeSliderKnob = this.add.circle(sliderX, knobY, 8, 0xdcc89f)
                 .setDepth(5)
                 .setInteractive({ draggable: true });
 
+            this.volumeSliderKnob.setStrokeStyle(2, 0x7f1a02);
+
             this.input.setDraggable(this.volumeSliderKnob);
 
-            // Hover highlight for knob
             this.volumeSliderKnob.on("pointerover", () => {
-                this.volumeSliderKnob.setFillStyle(0xf5deb3); // lighter beige
+                this.volumeSliderKnob.setFillStyle(0xf5deb3);
             });
             this.volumeSliderKnob.on("pointerout", () => {
-                this.volumeSliderKnob.setFillStyle(0xdcc89f); // reset to beige
+                this.volumeSliderKnob.setFillStyle(0xdcc89f);
             });
 
-            // Drag update
             this.volumeSliderKnob.on("drag", (pointer, dragX, dragY) => {
                 let clampedY = Phaser.Math.Clamp(dragY, sliderY - 50, sliderY + 50);
                 this.volumeSliderKnob.y = clampedY;
