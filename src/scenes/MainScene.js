@@ -12,6 +12,7 @@ const DEBIT = "Debits";
 const CREDIT = "Credits";
 const ASSETS = "Assets";
 const LIABILITIES = "Liabilities";
+const NUM_BALLS_AT_TIME = 4;
 
 const EXPENSES = "Expenses/Losses";
 const REVENUES = "Revenues/Gains";
@@ -37,10 +38,161 @@ const DESCRIPTION_MAP = new Map([
         "Inflows or other enhancements of assets of an entityor settlements of its liabilities (or a combination of both) from delivering orproducing goods, rendering services, or carrying out other activities",
     ],
 ]);
+const POINTS_200 = new Set([
+    "Accrued Interest",
+    "Accrued Rent",
+    "Accrued Salaries",
+    "Accrued Utilities",
+    "Accumulated Depletion",
+    "Accumulated Depreciation",
+    "Accumulated Profits",
+    "Additional Paid in Capital - Common Stock",
+    "Additional Paid in Capital - Preferred Stock",
+    "Additional Paid in Capital - Treasury Stock",
+    "Advertising Revenue",
+    "Advertising Earnings",
+    "Allowance for Doubtful Accounts",
+    "Amortization Expense",
+    "Amortization Costs",
+    "Artist Fee Expense",
+    "Artist Fees",
+    "Attorney Fees",
+    "Bad Debt Expense",
+    "Bad Debts",
+    "Checking Accounts",
+    "Commissions Expense",
+    "Commissions Costs",
+    "Commissions Payable",
+    "Computer Hardware",
+    "Consulting Expense",
+    "Consulting Fees",
+    "Copyright",
+    "Cost of Goods Sold",
+    "Cost of Sales",
+    "Customer Lists",
+    "Customer Deposits",
+    "Customer Refunds Payable",
+    "Delivery Expense",
+    "Delivery Fees",
+    "Depreciation Expense",
+    "Depreciation Costs",
+    "Dividends Payable",
+    "Equipment Rental Expense",
+    "Equipment Rental Fees",
+    "Finished Goods Inventory",
+    "Franchise",
+    "Income Taxes Expense",
+    "Income Taxes Costs",
+    "Income Taxes Payable",
+    "IT Expense",
+    "IT Costs",
+    "License Fees and Taxes Expense",
+    "License Fees and Taxes",
+    "Loss on Disposal of Property,Plant, & Equipment",
+    "Loss on Sale of Intangibles",
+    "Loss on Sale of Investments",
+    "Medicare Taxes Expense",
+    "Medicare Taxes Cost",
+    "Medicare Taxes Payable",
+    "Money Market Accounts",
+    "Office Rent Expense",
+    "Office Rent Fees",
+    "Penalties and Fines Expense",
+    "Penalties and Fines",
+    "Petty Cash",
+    "Property Taxes Expense",
+    "Property Tax Fees",
+    "Promotional Materials Expense",
+    "Raw Materials Inventory",
+    "Rent Expense",
+    "Rent Fees",
+    "Royalties Expense",
+    "Royalties Paid",
+    "Sales Discounts",
+    "Sales Returns and Allowances",
+    "Savings Accounts",
+    "Security Services Expense",
+    "Security Services Costs",
+    "Service Charge Expense",
+    "Service Charges",
+    "Service Equipment",
+    "Short-Term Bonds Receivable",
+    "Social Security Taxes Expense",
+    "Social Security Taxes Paid",
+    "Social Security Taxes Payable",
+    "Software Subscription Expense",
+    "Software Subscription Costs",
+    "Supplies Inventory",
+    "Trade Show Expense",
+    "Trade Show Costs",
+    "Trademark",
+    "Training Expense",
+    "Training Costs",
+    "Treasury Stock",
+    "Unemployment Taxes Expense",
+    "Unemployment Taxes Costs",
+    "Unemployment Taxes Payable",
+    "Wages Payable",
+    "Warranty Liability",
+    "Dividends Payable",
+    "Membership & Subscription Revenue",
+    "Preferred Stock",
+    "Gain on Disposal of Property, Plant, & Equipment",
+    "Gain on Sale of Intangibles",
+    "Gain on Sale of Investments",
+    "Gain on Settlement of Lawsuit",
+]);
 
-const NUM_BALLS_AT_TIME = 4;
-export const RIGHT_FIRST_TIME_SCORE = 10;
-export const RIGHT_NOT_FIRST_TIME_SCORE = 5;
+const POINTS_300 = new Set([
+    "Foreign Exchange Losses",
+    "Foreign Exchange Gains",
+    "Natural Resources",
+    "Accumulated Other Comprehenseive Income",
+    "Advances to Officers, Directors, and Employees",
+    "Marketable Securities",
+    "Investments-Equity Method",
+    "Tax Refund Receivable",
+    "Purchases",
+    "Research and Development Expense",
+    "Research and Development Costs",
+    "Trading Securities",
+    "Certificates of Deposit",
+    "Organizational Costs",
+    "Investments-Available-for-Sale Securities",
+    "Loss from Impairment",
+    "Transportation-In",
+    "Deferred Tax Assets",
+    "Investments-Trading Securities",
+    "Discount on Bonds Payable",
+    "Discount on Notes Payable",
+    "Investment in Subsidiary",
+    "Treasury Bills",
+    "Unrealized Loss on Available for Sale Securities",
+    "Unrealized Gain on Available for Sale Securities",
+    "Unrealized Gain on Trading Securities",
+    "Allowance to Adjust Available-for-Sale Securities to Market",
+    "Allowance to Adjust Trading Securities to Market",
+    "Capital Lease Liability",
+    "Deferred Income Tax Liability",
+    "Grant Revenue",
+    "Grant Receipts",
+    "Investment lncome - Equity Method",
+    "Premium on Bonds Payable",
+    "Premium on Notes Payable",
+    "Provision for Lawsuit",
+    "Purchase Allowances",
+    "Purchases Discounts",
+    "Revenue Received in Advance",
+    "Royalties Payable",
+    "Royalty Income",
+    "Cash Over and Short",
+]);
+
+const assignPoints = (name) => {
+    if (POINTS_300.has(name)) return 300;
+    if (POINTS_200.has(name)) return 200;
+    return 100; // default
+};
 
 const config = {
     time_limit: 90000,
@@ -156,54 +308,62 @@ export class MainScene extends Scene {
         // show system cursor in menus
         this.input.setDefaultCursor("default");
     }
-
     addBall() {
-        if (this.ballCount < this.elements.length) {
-            if (this.balls.getLength() < NUM_BALLS_AT_TIME) {
-                let starting_conveyor_belt =
-                    this.starting_conveyor_belts[
-                        Math.floor(
-                            Math.random() * this.starting_conveyor_belts.length
-                        )
-                    ];
-                let ball = new Ball(
-                    this,
-                    starting_conveyor_belt.x,
-                    starting_conveyor_belt.y,
-                    this.elements[this.ballCount].name,
-                    this.elements[this.ballCount].type,
-                    this.difficulty
-                );
-                let hit_box_radius = Math.min(
-                    ball.hit_box_radius,
-                    (this.ball_pit_height / 5) * 2
-                );
-                ball.body.setCircle(hit_box_radius);
-                ball.body.offset.x = -hit_box_radius;
-                ball.body.offset.y = -hit_box_radius;
-                ball.start();
-                this.balls.add(ball);
-                this.ballCount++;
-            }
-        }
+        if (this.ballCount >= this.elements.length) return;
+        if (this.balls.getLength() >= NUM_BALLS_AT_TIME) return;
+
+        const elem = this.elements[this.ballCount];
+
+        // Pick a random starting conveyor belt
+        const starting_conveyor_belt =
+            this.starting_conveyor_belts[
+                Math.floor(Math.random() * this.starting_conveyor_belts.length)
+            ];
+
+        // Create the ball
+        const ball = new Ball(
+            this,
+            starting_conveyor_belt.x,
+            starting_conveyor_belt.y,
+            elem.name,
+            elem.type,
+            this.difficulty
+        );
+
+        // Assign the correct points
+        ball.points = elem.points;
+
+        // Adjust hitbox to fit the pit
+        const hit_box_radius = Math.min(
+            ball.hit_box_radius,
+            (this.ball_pit_height / 5) * 2
+        );
+        ball.body.setCircle(hit_box_radius);
+        ball.body.offset.x = -hit_box_radius;
+        ball.body.offset.y = -hit_box_radius;
+
+        ball.start();
+        this.balls.add(ball);
+
+        this.ballCount++;
     }
 
     checkForBall(ball, basket) {
         if (ball.state !== "picked" && ball.pit_number == null) {
             if (ball.type === basket.type) {
+                const ballPoints = ball.points ?? 100;
                 this.points += ball.been_in_wrong_basket
-                    ? RIGHT_NOT_FIRST_TIME_SCORE
-                    : RIGHT_FIRST_TIME_SCORE;
+                    ? ballPoints / 2
+                    : ballPoints;
+
                 this.scene.get("HudScene").update_points(this.points);
                 ball.destroyBall();
                 this.answer_stats.get(basket.type).correct += 1;
 
-                // ✅ Only play if volume > 0
                 if (this.game.sfxVolume > 0) {
                     this.sound.play("correct", { volume: this.game.sfxVolume });
                 }
             } else {
-                // ✅ Only play if volume > 0
                 if (this.game.sfxVolume > 0) {
                     this.sound.play("error", { volume: this.game.sfxVolume });
                 }
@@ -220,20 +380,26 @@ export class MainScene extends Scene {
         const debits = this.normalBalance
             .map((row) => row?.[0])
             .filter(Boolean);
+
         const [creditNum, debitNum] = this.generateRandomNumbers(
             total,
             2,
             false,
             0.4
         );
+
         const creditSamples = this.sample(credits, creditNum).map((name) => ({
             name,
             type: "Credits",
+            points: assignPoints(name),
         }));
+
         const debitSamples = this.sample(debits, debitNum).map((name) => ({
             name,
             type: "Debits",
+            points: assignPoints(name),
         }));
+
         return this.shuffle([...creditSamples, ...debitSamples]);
     }
 
@@ -257,6 +423,7 @@ export class MainScene extends Scene {
                 return this.sample(col, typeNums[i]).map((name) => ({
                     name,
                     type: typeNames[i] ?? `type${i}`,
+                    points: assignPoints(name),
                 }));
             })
         );
