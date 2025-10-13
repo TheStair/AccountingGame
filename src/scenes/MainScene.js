@@ -247,16 +247,16 @@ export class MainScene extends Scene {
             this.config.basket_types = [
                 ASSETS,
                 LIABILITIES,
+                STOCKHOLDERS_EQUITY, // swapped
                 EXPENSES, // swapped
-                REVENUES, // swapped
-                STOCKHOLDERS_EQUITY,
+                REVENUES,
             ];
             this.config.belt_types = [
                 ASSETS,
                 LIABILITIES,
+                STOCKHOLDERS_EQUITY, // swapped
                 EXPENSES, // swapped
                 REVENUES,
-                STOCKHOLDERS_EQUITY, // swapped
             ];
             this.config.belt_labels = [1, 2, 3, 4, 5];
         }
@@ -413,7 +413,7 @@ export class MainScene extends Scene {
         ];
 
         const colCount = this.allSheet[0]?.length ?? 0;
-        const typeNums = this.generateRandomNumbers(total, colCount, false);
+        const typeNums = this.generateRandomNumbers(total, colCount, true);
 
         return this.shuffle(
             Array.from({ length: colCount }).flatMap((_, i) => {
