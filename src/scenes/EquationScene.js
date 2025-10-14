@@ -7,23 +7,22 @@ export class EquationScene extends Scene {
     }
 
     init() {
-        this.currentPhase = 1;
+        // ---- Level state ----
+        this.currentLevel = null;        // 1 | 2 | 3 after selection
         this.currentQuestion = 0;
-        this.totalPhases = 3;
-        this.questionsPerPhase = 5;
+        this.questionsPerLevel = 10;     // requested: 10 questions per level
 
-        // Phase time limits (seconds)
-        this.phaseTimes = { 1: 60, 2: 120, 3: 180 };
+        // Time limit (seconds) — requested: 90 seconds per level
+        this.levelTime = 90;
 
-        // Score system by phase
-        this.phasePoints = { 1: 100, 2: 200, 3: 300 };
-
+        // Score system (keep your per-level points from prior phases)
+        this.levelPoints = { 1: 100, 2: 200, 3: 300 };
         this.score = 0;
 
-        // Pools built from Excel for each phase
-        this.phasePools = { 1: [], 2: [], 3: [] };
+        // Pools built from Excel (same sheets/logic as before)
+        this.levelPools = { 1: [], 2: [], 3: [] };
 
-        // Build pools from Excel
+        // Build pools from Excel (from cached binary "excelData")
         this.buildPoolsFromExcel();
     }
 
@@ -33,14 +32,14 @@ export class EquationScene extends Scene {
         // Background
         this.add.rectangle(0, 0, width, height, 0x7f1a02).setOrigin(0);
 
-        // Score text (top-left)
+        // Score (top-left)
         this.scoreText = this.add.text(20, 20, "Score: 0", {
             fontSize: "28px",
             fontFamily: '"Jersey 10", sans-serif',
             color: "#dcc89f",
         }).setOrigin(0, 0);
 
-        // --- ESC → PauseScene hookup ---
+        // ESC → Pause
         const escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         escKey.on("down", () => {
             if (!this.scene.isActive("PauseScene")) {
@@ -50,15 +49,15 @@ export class EquationScene extends Scene {
             }
         });
 
-        // Start with Phase Intro
-        this.showPhaseIntro();
+        // Start at Level Select (replaces the old Phase 1 intro)
+        this.showLevelSelect();
     }
 
     // --------------------------------------------------------------------------------
     // Excel wiring
-    // Phase 1: F question, correct is green-highlighted among C/D/E (or H marker/comment)
-    // Phase 2: G question (Medium)
-    // Phase 3: G question (Hard)
+    // Level 1: Easy sheet — Question F4..F23, Answers fixed G/I/H/I in UI order [TL,TR,BL,BR]
+    // Level 2: Medium sheet — Question G4..G23 (placeholder answers)
+    // Level 3: Hard sheet   — Question G4..G23 (placeholder answers)
     // --------------------------------------------------------------------------------
     buildPoolsFromExcel() {
         try {
@@ -68,7 +67,6 @@ export class EquationScene extends Scene {
                 return;
             }
 
-            // Enable style + comment reading to improve green / "correct" detection
             const wb = XLSX.read(bin, {
                 type: "array",
                 cellStyles: true,
@@ -80,20 +78,26 @@ export class EquationScene extends Scene {
                 cellComments: true,
             });
 
-            // --- PHASE 1 (Easy): F question, green among C/D/E is correct ---
-            this.phasePools[1] = this.extractEasyPhase(
+            // --- LEVEL 1 (Easy): F question; answers from G/I/H/I by on-screen order [TL,TR,BL,BR] ---
+            this.levelPools[1] = this.extractFixedAnswers(
                 wb.Sheets["A=L+SE - Easy"],
-                { qCol: "F", start: 4, end: 23, answerCols: ["C", "D", "E"], markerCol: "H" } // H is optional helper marker
+                {
+                    qCol: "F",
+                    start: 4,
+                    end: 23,
+                    // IMPORTANT: order here must match showQuestion's render order [0=TL, 1=TR, 2=BL, 3=BR]
+                    addrOrderForRow: (r) => [`G${r}`, `I${r}`, `H${r}`, `J${r}`],
+                }
             );
 
-            // --- PHASE 2 (Medium): G question ---
-            this.phasePools[2] = this.extractQuestionOnly(
+            // --- LEVEL 2 (Medium): G question ---
+            this.levelPools[2] = this.extractQuestionOnly(
                 wb.Sheets["A=L+SE - Medium"],
                 { qCol: "G", start: 4, end: 23 }
             );
 
-            // --- PHASE 3 (Hard): G question ---
-            this.phasePools[3] = this.extractQuestionOnly(
+            // --- LEVEL 3 (Hard): G question ---
+            this.levelPools[3] = this.extractQuestionOnly(
                 wb.Sheets["A=L+SE - Hard"],
                 { qCol: "G", start: 4, end: 23 }
             );
@@ -102,6 +106,36 @@ export class EquationScene extends Scene {
         }
     }
 
+    // --------- NEW for Level 1: fixed-position answers pulled from Excel ----------
+    extractFixedAnswers(sheet, cfg) {
+        if (!sheet) return [];
+        const out = [];
+
+        for (let r = cfg.start; r <= cfg.end; r++) {
+            // Question from F-row
+            const q = this.cellToString(sheet[`${cfg.qCol}${r}`]);
+            if (!q) continue;
+
+            // Answers in fixed positions to match on-screen layout order [TL,TR,BL,BR]
+            const addrs = cfg.addrOrderForRow(r);
+            const answers = addrs.map(a => this.cellToString(sheet[a]) || "");
+
+            // Detect correct index:
+            // 1) cell comments containing "correct"
+            let correctIndex = this.correctIndexFromComments(sheet, addrs);
+
+            // 2) green-ish fill dominance
+            if (correctIndex === -1) correctIndex = this.correctIndexFromGreenFill(sheet, addrs);
+
+            // Fallback: top-left (index 0)
+            if (correctIndex === -1) correctIndex = 0;
+
+            out.push({ question: q, answers, correctIndex });
+        }
+        return out;
+    }
+
+    // ---------- (kept) OLD easy extractor, not used by Level 1 anymore ----------
     extractEasyPhase(sheet, cfg) {
         if (!sheet) return [];
         const out = [];
@@ -110,24 +144,13 @@ export class EquationScene extends Scene {
             const q = this.cellToString(sheet[`${cfg.qCol}${r}`]);
             if (!q) continue;
 
-            // Grab numeric candidates from C/D/E
             const candVals = cfg.answerCols.map(col => this.cellToNumber(sheet[`${col}${r}`]));
             const candAddrs = cfg.answerCols.map(col => `${col}${r}`);
 
-            // 1) Try explicit marker column (H) if present: C/D/E or 1/2/3
             let correctIdx = this.correctIndexFromMarker(sheet, cfg.markerCol, r);
+            if (correctIdx === -1) correctIdx = this.correctIndexFromComments(sheet, candAddrs);
+            if (correctIdx === -1) correctIdx = this.correctIndexFromGreenFill(sheet, candAddrs);
 
-            // 2) Try cell comments containing "correct"
-            if (correctIdx === -1) {
-                correctIdx = this.correctIndexFromComments(sheet, candAddrs);
-            }
-
-            // 3) Try fill color (green-ish)
-            if (correctIdx === -1) {
-                correctIdx = this.correctIndexFromGreenFill(sheet, candAddrs);
-            }
-
-            // 4) Fallback: first numeric value
             if (correctIdx === -1) {
                 correctIdx = candVals.findIndex(v => typeof v === "number" && !isNaN(v));
                 if (correctIdx === -1) {
@@ -143,11 +166,9 @@ export class EquationScene extends Scene {
                 continue;
             }
 
-            // Generate 3 decoys near the correct value (unique, non-negative, != correct)
             const decoys = this.generateDecoysNear(correctVal, 3);
             const answersRaw = [correctVal, ...decoys].map(n => this.formatNumber(n));
 
-            // Shuffle and compute new correct index
             const shuffled = answersRaw.slice();
             Phaser.Utils.Array.Shuffle(shuffled);
             const correctText = this.formatNumber(correctVal);
@@ -163,6 +184,7 @@ export class EquationScene extends Scene {
         return out;
     }
 
+    // ---------- Level 2/3 placeholder extractor ----------
     extractQuestionOnly(sheet, cfg) {
         if (!sheet) return [];
         const out = [];
@@ -177,9 +199,9 @@ export class EquationScene extends Scene {
             out.push({ question: q, answers, correctIndex });
         }
         return out;
-        }
+    }
 
-    // ----- Helpers for detection -----
+    // ----- Helpers for detection / cell reading -----
     cellToString(cell) {
         if (!cell) return "";
         if (cell.w != null) return String(cell.w).trim();
@@ -203,12 +225,10 @@ export class EquationScene extends Scene {
         const marker = this.cellToString(sheet[`${markerCol}${row}`]).toUpperCase();
         if (!marker) return -1;
 
-        // Accept "C", "D", "E"
         if (marker === "C") return 0;
         if (marker === "D") return 1;
         if (marker === "E") return 2;
 
-        // Accept 1/2/3 (1-based)
         if (marker === "1") return 0;
         if (marker === "2") return 1;
         if (marker === "3") return 2;
@@ -241,8 +261,6 @@ export class EquationScene extends Scene {
                 bestIdx = i;
             }
         }
-
-        // Require the green dominance to be meaningful
         return bestScore > 20 ? bestIdx : -1;
     }
 
@@ -258,7 +276,6 @@ export class EquationScene extends Scene {
             const r = parseInt(hex.slice(0, 2), 16);
             const g = parseInt(hex.slice(2, 4), 16);
             const b = parseInt(hex.slice(4, 6), 16);
-            // Score by G - average(R,B)
             return g - (r + b) / 2;
         } catch {
             return -Infinity;
@@ -271,11 +288,10 @@ export class EquationScene extends Scene {
         const stepBase = Math.pow(10, Math.max(0, Math.floor(Math.log10(abs)) - 1));
 
         while (decoys.size < count) {
-            const pct = (5 + Math.random() * 20) / 100; // 5–25%
+            const pct = (5 + Math.random() * 20) / 100;
             const sign = Math.random() < 0.5 ? -1 : 1;
             let val = correct * (1 + sign * pct);
 
-            // Round to a friendly step
             const step = Math.max(1, Math.round(stepBase));
             val = Math.round(val / step) * step;
 
@@ -289,56 +305,114 @@ export class EquationScene extends Scene {
     }
 
     // --------------------------------------------------------------------------------
-    // Your existing flow (unchanged): phase intro → countdown → timer → questions
+    // Level flow (Level Select → countdown → timer → 10 questions → GameOver)
     // --------------------------------------------------------------------------------
 
-    // Prepare a fresh, randomized set of 5 questions for the current phase
-    preparePhaseQuestions() {
-        const pool = (this.phasePools[this.currentPhase] || []).slice();
-        Phaser.Utils.Array.Shuffle(pool);
-        this.phaseQuestions = pool.slice(0, this.questionsPerPhase);
+    showLevelSelect() {
+        const { width, height } = this.scale;
 
-        if (this.phaseQuestions.length === 0) {
+        // Title
+        this.levelTitle = this.add.text(width / 2, height * 0.25, "Choose Level", {
+            fontSize: "64px",
+            fontFamily: '"Jersey 10", sans-serif',
+            color: "#dcc89f",
+            stroke: "#7f1a02",
+            strokeThickness: 6
+        }).setOrigin(0.5);
+
+        // Buttons (Level 1/2/3)
+        this.levelButtons = [];
+        const labels = ["Level 1", "Level 2", "Level 3"];
+        labels.forEach((label, idx) => {
+            const y = height * 0.45 + idx * 110;
+            const btn = this.makeButton(width / 2, y, 360, 80, label, () => {
+                // On select
+                this.currentLevel = idx + 1;
+                this.cleanupLevelSelect();
+                this.startLevelFlow();
+            });
+            this.levelButtons.push(btn);
+        });
+    }
+
+    cleanupLevelSelect() {
+        if (this.levelTitle) this.levelTitle.destroy();
+        if (this.levelButtons) {
+            this.levelButtons.forEach(b => { b.box.destroy(); b.text.destroy(); });
+            this.levelButtons = null;
+        }
+    }
+
+    makeButton(x, y, w, h, label, onClick) {
+        const box = this.add.rectangle(x, y, w, h, 0xdcc89f)
+            .setStrokeStyle(4, 0x7f1a02)
+            .setInteractive({ useHandCursor: true });
+
+        const text = this.add.text(x, y, label, {
+            fontSize: "36px",
+            fontFamily: '"Jersey 10", sans-serif',
+            color: "#7f1a02",
+        }).setOrigin(0.5);
+
+        box.on("pointerover", () => box.setFillStyle(0xf5deb3));
+        box.on("pointerout",  () => box.setFillStyle(0xdcc89f));
+        box.on("pointerdown", () => onClick && onClick());
+
+        return { box, text };
+    }
+
+    startLevelFlow() {
+        // Prepare questions for this level and show the little intro card + countdown
+        this.prepareLevelQuestions();
+        this.showLevelIntro();
+    }
+
+    // Prepare randomized 10-question set for selected level
+    prepareLevelQuestions() {
+        const pool = (this.levelPools[this.currentLevel] || []).slice();
+        Phaser.Utils.Array.Shuffle(pool);
+        this.levelQuestions = pool.slice(0, this.questionsPerLevel);
+
+        if (this.levelQuestions.length === 0) {
             // Fallback stubs
-            this.phaseQuestions = Array.from({ length: this.questionsPerPhase }, (_, i) => ({
-                question: `Question ${i + 1} of Phase ${this.currentPhase}`,
+            this.levelQuestions = Array.from({ length: this.questionsPerLevel }, (_, i) => ({
+                question: `Question ${i + 1} of Level ${this.currentLevel}`,
                 answers: ["Option A", "Option B", "Option C", "Option D"],
                 correctIndex: Phaser.Math.Between(0, 3)
             }));
         }
     }
 
-    // --- Phase Intro ---
-    showPhaseIntro() {
+    // --- Level Intro (small card) ---
+    showLevelIntro() {
         const { width, height } = this.scale;
 
-        // New phase → build the randomized list for this phase
-        this.preparePhaseQuestions();
+        this.currentQuestion = 0;
 
-        this.phaseBox = this.add.rectangle(width / 2, height / 2, 400, 200, 0xdcc89f)
+        this.levelBox = this.add.rectangle(width / 2, height / 2, 420, 220, 0xdcc89f)
             .setStrokeStyle(4, 0x7f1a02)
             .setDepth(5);
 
-        this.phaseText = this.add.text(width / 2, height / 2, `Phase ${this.currentPhase}`, {
+        this.levelText = this.add.text(width / 2, height / 2, `Level ${this.currentLevel}`, {
             fontSize: "48px",
             fontFamily: '"Jersey 10", sans-serif',
             color: "#7f1a02",
         }).setOrigin(0.5).setDepth(6);
 
         this.tweens.add({
-            targets: [this.phaseBox, this.phaseText],
+            targets: [this.levelBox, this.levelText],
             alpha: 0,
-            delay: 1500,
-            duration: 1000,
+            delay: 1200,
+            duration: 900,
             onComplete: () => {
-                this.phaseBox.destroy();
-                this.phaseText.destroy();
+                this.levelBox.destroy();
+                this.levelText.destroy();
                 this.startCountdown();
             }
         });
     }
 
-    // --- Countdown before phase ---
+    // --- 3..2..1 countdown ---
     startCountdown() {
         const { width, height } = this.scale;
         let count = 3;
@@ -360,17 +434,17 @@ export class EquationScene extends Scene {
                     this.countdownText.setText(count);
                 } else {
                     this.countdownText.destroy();
-                    this.startPhaseTimer();
+                    this.startLevelTimer();
                     this.showQuestion();
                 }
             }
         });
     }
 
-    // --- Start phase timer ---
-    startPhaseTimer() {
+    // --- Start 90s level timer ---
+    startLevelTimer() {
         const { width, height } = this.scale;
-        let timeLeft = this.phaseTimes[this.currentPhase];
+        let timeLeft = this.levelTime; // 90 seconds
 
         if (this.timerEvent) this.timerEvent.remove();
         if (this.timerText) this.timerText.destroy();
@@ -389,7 +463,7 @@ export class EquationScene extends Scene {
             callback: () => {
                 timeLeft--;
                 this.timerText.setText(this.formatTime(timeLeft));
-                if (timeLeft <= 0) this.endPhase();
+                if (timeLeft <= 0) this.endLevel();
             }
         });
     }
@@ -400,12 +474,12 @@ export class EquationScene extends Scene {
         return `${minutes}:${partInSeconds.toString().padStart(2, "0")}`;
     }
 
-    // --- Show a question with 2x2 answers (from prepared pool) ---
+    // --- Show a question with 2x2 answers ---
     showQuestion() {
         const { width, height } = this.scale;
 
-        const item = this.phaseQuestions?.[this.currentQuestion];
-        const questionText = item?.question ?? `Question ${this.currentQuestion + 1} of Phase ${this.currentPhase}`;
+        const item = this.levelQuestions?.[this.currentQuestion];
+        const questionText = item?.question ?? `Question ${this.currentQuestion + 1} of Level ${this.currentLevel}`;
         const answers = item?.answers ?? ["Option A", "Option B", "Option C", "Option D"];
         const correctIndex = typeof item?.correctIndex === "number" ? item.correctIndex : Phaser.Math.Between(0, 3);
 
@@ -453,11 +527,11 @@ export class EquationScene extends Scene {
                 this.answered = true;
 
                 if (i === correctIndex) {
-                    border.setFillStyle(0x00aa00); // green
-                    this.score += this.phasePoints[this.currentPhase];
+                    border.setFillStyle(0x00aa00);
+                    this.score += this.levelPoints[this.currentLevel] ?? 100;
                     this.scoreText.setText("Score: " + this.score);
                 } else {
-                    border.setFillStyle(0xaa0000); // red
+                    border.setFillStyle(0xaa0000);
                 }
 
                 // Disable others
@@ -487,15 +561,15 @@ export class EquationScene extends Scene {
 
         this.currentQuestion++;
 
-        if (this.currentQuestion < this.questionsPerPhase) {
+        if (this.currentQuestion < this.questionsPerLevel) {
             this.showQuestion();
         } else {
-            this.endPhase();
+            this.endLevel();
         }
     }
 
-    // --- End of Phase ---
-    endPhase() {
+    // --- End of Level (go straight to Game Over) ---
+    endLevel() {
         if (this.questionBox) this.questionBox.destroy();
         if (this.questionText) this.questionText.destroy();
         if (this.answerButtons) {
@@ -508,14 +582,7 @@ export class EquationScene extends Scene {
         if (this.timerEvent) this.timerEvent.remove();
         if (this.timerText) this.timerText.destroy();
 
-        this.currentPhase++;
-        this.currentQuestion = 0;
-        this.phaseQuestions = null; // re-randomize next phase
-
-        if (this.currentPhase <= this.totalPhases) {
-            this.showPhaseIntro();
-        } else {
-            this.scene.start("GameOverScene", { score: this.score });
-        }
+        // No auto-advance — we’re done after chosen level
+        this.scene.start("GameOverScene", { score: this.score });
     }
 }
