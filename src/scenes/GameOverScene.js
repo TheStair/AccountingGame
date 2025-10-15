@@ -39,7 +39,7 @@ export class GameOverScene extends Scene {
         // --- Check if player qualifies ---
         try {
             const previewRes = await fetch(
-                `http://127.0.0.1:8000/preview?game=${this.gameKey}&score=${this.end_points}`
+                `${this.game.apiBaseUrl}/preview?game=${this.gameKey}&score=${this.end_points}`
             );
             const result = await previewRes.json();
 
@@ -100,7 +100,7 @@ export class GameOverScene extends Scene {
             const username = input.node.value.toUpperCase().slice(0, 3) || "AAA";
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/submit", {
+                const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({

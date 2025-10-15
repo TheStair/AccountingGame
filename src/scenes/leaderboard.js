@@ -10,6 +10,7 @@ export class Leaderboard extends Scene {
         this.gameKey = data.gameKey || "game1";
         this.highlightName = data.highlightName || null;
     }
+    
 
     async create() {
         const bg = this.add.image(0, 0, 'home_bg')
@@ -54,6 +55,8 @@ export class Leaderboard extends Scene {
             { label: 'Math 2', key: 'game3_intermediate' },
             { label: 'Math 3', key: 'game3_advanced' },
         ];
+
+        const base_url = this.game.apiBaseUrl;
 
         this.activeButton = null;
         const buttonSpacing = 100;
@@ -119,7 +122,7 @@ export class Leaderboard extends Scene {
         this.tableGroup.removeAll(true);
 
         try {
-            const res = await fetch(`http://127.0.0.1:8000/leaderboard/${mode}`);
+            const res = await fetch(`${this.game.apiBaseUrl}/leaderboard/${mode}`);
             const data = await res.json();
 
             data.sort((a, b) => b.score - a.score);

@@ -43,6 +43,9 @@ export class Preloader extends Phaser.Scene {
             percentText.destroy();
         });
 
+        // ----- API URL -----
+        this.game.apiBaseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
         // --- Assets ---
         this.load.setPath("assets");
 
