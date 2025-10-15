@@ -135,6 +135,7 @@ export class GameOverScene extends Scene {
         submitBtn.on("pointerdown", async () => {
             const username =
                 input.node.value.toUpperCase().slice(0, 3) || "AAA";
+            const score = parseInt(this.end_points, 10)
 
             try {
                 const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
@@ -143,7 +144,7 @@ export class GameOverScene extends Scene {
                     body: JSON.stringify({
                         game: this.gameKey,
                         username,
-                        score: this.end_points,
+                        score,
                     }),
                 });
 
