@@ -143,6 +143,19 @@ export class MainMenuScene extends Scene {
         this.volumeButton.on("pointerdown", () => {
             this.toggleVolumeSlider();
         });
+
+        const leader_icon = this.add.image(this.scale.width - 50, 50, 'leaderboardIcon')
+            .setInteractive()
+            .setScale(0.10)
+            .setOrigin(0.5)
+            .setDepth(5)
+            .on('pointerdown', () => {
+                this.scene.start('Leaderboard');
+        });
+
+            // Optional hover effect
+        leader_icon.on('pointerover', () => icon.setScale(0.55));
+        leader_icon.on('pointerout', () => icon.setScale(0.5));
     }
 
     update() {
@@ -225,4 +238,6 @@ export class MainMenuScene extends Scene {
             });
         }
     }
+
+
 }

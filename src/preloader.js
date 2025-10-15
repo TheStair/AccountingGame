@@ -95,6 +95,10 @@ export class Preloader extends Phaser.Scene {
         // Excel file
         this.load.binary("excelData", "UpdatedAccountingElements.xlsx");
 
+        //leaderboard icon
+        this.load.image('leaderboardIcon', 'trophy_icon.png')
+        this.load.image('exitIcon', 'exit_icon.png');
+
         // Debug loader log
         this.load.on("progress", (progress) => {
             console.log("Loading: " + Math.round(progress * 100) + "%");
