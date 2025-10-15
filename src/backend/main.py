@@ -35,9 +35,10 @@ app = FastAPI(lifespan=lifespan, title="Arcade Leaderboard API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten for prod
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_origins=["*"],        # <-- allow all domains
+    allow_credentials=True,
+    allow_methods=["*"],        # <-- allow all methods (GET, POST, etc.)
+    allow_headers=["*"],        # <-- allow all headers
 )
 
 class LeaderboardRow(BaseModel):

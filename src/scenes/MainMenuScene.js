@@ -151,9 +151,9 @@ export class MainMenuScene extends Scene {
             .setDepth(5)
             .on('pointerdown', () => {
                 this.scene.start('Leaderboard');
-        });
+            });
 
-            // Optional hover effect
+        // Optional hover effect
         leader_icon.on('pointerover', () => icon.setScale(0.55));
         leader_icon.on('pointerout', () => icon.setScale(0.5));
     }
@@ -183,7 +183,7 @@ export class MainMenuScene extends Scene {
         // fade out like the other modes (black), not special brown
         this.cameras.main.fadeOut(500, 0, 0, 0);
         this.cameras.main.once("camerafadeoutcomplete", () => {
-            this.scene.start("EquationScene"); 
+            this.scene.start("EquationScene");
         });
     }
 

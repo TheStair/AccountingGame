@@ -209,6 +209,8 @@ export class MainScene extends Scene {
 
     config = config;
 
+    game_key = "unknown"
+
     constructor() {
         super("MainScene");
     }
@@ -242,6 +244,7 @@ export class MainScene extends Scene {
             this.config.basket_types = [DEBIT, CREDIT];
             this.config.belt_types = [NONE, NONE, NONE, DEBIT, CREDIT];
             this.config.belt_labels = [4, 5];
+            this.game_key = "game1"
         } else {
             this.elements = this.getRandomAllElements(NUM_BALLS);
             this.config.basket_types = [
@@ -259,6 +262,7 @@ export class MainScene extends Scene {
                 REVENUES,
             ];
             this.config.belt_labels = [1, 2, 3, 4, 5];
+            this.game_key = "game2"
         }
 
         this.answer_stats = new Map(
@@ -402,6 +406,7 @@ export class MainScene extends Scene {
 
         return this.shuffle([...creditSamples, ...debitSamples]);
     }
+
 
     getRandomAllElements(total) {
         const typeNames = [
@@ -633,8 +638,10 @@ export class MainScene extends Scene {
                 callback: () => {
                     if (this.game_over_timeout === 0) {
                         this.game.events.emit("exit-game");
-                        this.scene.start("GameOverScene", {
+                        this.scene.start("GameOverScene", 
+                        {
                             points: this.points,
+                            gameKey: this.game_key,
                         });
                     } else {
                         this.game_over_timeout--;
