@@ -7,8 +7,8 @@ export class Leaderboard extends Scene {
     }
 
     init(data) {
-        this.gameKey = data?.gameKey || "game1";
-        this.highlightName = data?.highlightName || null;
+        this.gameKey = data.gameKey || "game1";
+        this.highlightName = data.highlightName || null;
     }
 
     async create() {
@@ -96,7 +96,7 @@ export class Leaderboard extends Scene {
         });
 
         // --- Load default leaderboard ---
-        this.loadLeaderboard('game1');
+        this.loadLeaderboard(this.gameKey);
     }
 
     updateScroll() {
