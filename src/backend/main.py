@@ -17,8 +17,8 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 ALLOWED_GAMES = {"game1", "game2", "game3"}
-USERNAME_RE = re.compile(r"^[0-9A-Za-z]{3}$")
-TOP_N = 10
+USERNAME_RE = re.compile(r"^[A-Za-z]{3}$")
+TOP_N = 100
  
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,7 +76,7 @@ LIMIT %s;
 )
 def get_leaderboard(
     game: str = Path(..., description="Game identifier (e.g., 'game1')"),
-    limit: int = Query(10, ge=1, le=100, description="Number of rows to return (1–100)."),
+    limit: int = Query(TOP_N, ge=1, le=100, description="Number of rows to return (1–100)."),
 ):
     if game not in ALLOWED_GAMES:
         raise HTTPException(status_code=404, detail="Unknown game")
