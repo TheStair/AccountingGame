@@ -1,243 +1,243 @@
 import { Scene } from "phaser";
 
 export class MainMenuScene extends Scene {
-    constructor() {
-        super("MainMenuScene");
+  constructor() {
+    super("MainMenuScene");
+  }
+
+  init() {
+    this.cameras.main.fadeIn(1000, 0, 0, 0);
+  }
+
+  create() {
+    const { width, height } = this.scale;
+
+    // Restore global SFX/music volume
+    this.game.sfxVolume = parseFloat(localStorage.getItem("volume"));
+    if (isNaN(this.game.sfxVolume)) this.game.sfxVolume = 1.0;
+
+    // --- Background ---
+    this.add
+      .image(width / 2, height / 2, "home_bg")
+      .setOrigin(0.5)
+      .setDisplaySize(width, height)
+      .setDepth(0);
+
+    // --- Clouds (single sprite, Pac-Man wrap) ---
+    this.clouds = this.add
+      .image(width / 2, height / 2 - 50, "home_clouds")
+      .setOrigin(0.5)
+      .setScale(0.5)
+      .setDepth(1);
+
+    this.cloudSpeed = 0.3;
+
+    // --- Overlay text ---
+    this.add
+      .image(width / 2, height / 2 + 80, "home_text")
+      .setOrigin(0.5)
+      .setDepth(2)
+      .setScale(0.8);
+
+    // --- Music ---
+    if (this.sound.locked) {
+      this.sound.once("unlocked", () => {
+        this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
+        this.game.musicManager.play(this, "menu_bgm");
+      });
+    } else {
+      this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
+      this.game.musicManager.play(this, "menu_bgm");
     }
 
-    init() {
-        this.cameras.main.fadeIn(1000, 0, 0, 0);
-    }
+    // --- Menu Buttons ---
+    // Replaced "equation" with the new third gamemode key "gamemode3"
+    const options = ["debit_credit", "accounting", "gamemode3"];
+    const selectedOptions = { type: "debit_credit" };
 
-    create() {
-        const { width, height } = this.scale;
+    const get_option_text = (option) => {
+      if (option === "debit_credit") return "Debit vs Credit";
+      if (option === "accounting") return "The Five Building Blocks";
+      if (option === "gamemode3") return "Accounting Equation";
+      return option;
+    };
 
-        // Restore global SFX/music volume
-        this.game.sfxVolume = parseFloat(localStorage.getItem("volume"));
-        if (isNaN(this.game.sfxVolume)) this.game.sfxVolume = 1.0;
+    const createButton = (x, y, labelText, onClick) => {
+      const border = this.add.rectangle(0, 0, 304, 64, 0x7f1a02).setDepth(3);
+      border.setStrokeStyle(3, 0xdcc89f);
+      const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
+      const label = this.add
+        .text(0, 0, labelText, {
+          fontSize: "24px",
+          fontFamily: '"Jersey 10", sans-serif',
+          color: "#dcc89f",
+        })
+        .setOrigin(0.5)
+        .setDepth(3);
 
-        // --- Background ---
-        this.add
-            .image(width / 2, height / 2, "home_bg")
-            .setOrigin(0.5)
-            .setDisplaySize(width, height)
-            .setDepth(0);
+      const button = this.add.container(x, y, [border, rect, label]).setDepth(3);
 
-        // --- Clouds (single sprite, Pac-Man wrap) ---
-        this.clouds = this.add
-            .image(width / 2, height / 2 - 50, "home_clouds")
-            .setOrigin(0.5)
-            .setScale(0.5)
-            .setDepth(1);
+      rect.setInteractive({ useHandCursor: true });
 
-        this.cloudSpeed = 0.3;
+      rect.on("pointerover", () => {
+        rect.setFillStyle(0xa8321a);
+        this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
+      });
 
-        // --- Overlay text ---
-        this.add
-            .image(width / 2, height / 2 + 80, "home_text")
-            .setOrigin(0.5)
-            .setDepth(2)
-            .setScale(0.8);
+      rect.on("pointerout", () => {
+        rect.setFillStyle(0x7f1a02);
+        this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
+      });
 
-        // --- Music ---
-        if (this.sound.locked) {
-            this.sound.once("unlocked", () => {
-                this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-                this.game.musicManager.play(this, "menu_bgm");
-            });
+      rect.on("pointerdown", () => {
+        if (this.game.sfxVolume > 0) {
+          this.sound.play("selection", { volume: this.game.sfxVolume });
+        }
+        const tween = this.tweens.add({
+          targets: button,
+          scale: 0.9,
+          duration: 80,
+          yoyo: true,
+          ease: "Power1",
+        });
+        tween.once("complete", onClick);
+      });
+
+      return button;
+    };
+
+    const totalButtons = options.length;
+    const spacing = 100;
+    const blockHeight = (totalButtons - 1) * spacing;
+    const startY = height / 2 - blockHeight / 2;
+
+    options.forEach((option, index) => {
+      createButton(width / 2, startY + index * spacing, get_option_text(option), () => {
+        selectedOptions.type = option;
+        if (this.game.musicManager) {
+          this.game.musicManager.stop();
+        }
+        if (option === "gamemode3") {
+          this.startGameMode3();
         } else {
-            this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-            this.game.musicManager.play(this, "menu_bgm");
+          this.startGame(selectedOptions);
         }
+      });
+    });
 
-        // --- Menu Buttons ---
-        const options = ["debit_credit", "accounting", "equation"];
-        const selectedOptions = { type: "debit_credit" };
+    // --- Volume Button (top-left) ---
+    this.volumeButton = this.add.circle(35, 35, 20, 0x7f1a02).setDepth(5).setInteractive();
+    this.volumeButton.setStrokeStyle(2, 0xdcc89f);
 
-        const get_option_text = (option) => {
-            if (option === "debit_credit") return "Debit vs Credit";
-            if (option === "accounting") return "The Five Building Blocks";
-            if (option === "equation") return "Accounting Equation";
-        };
+    // --- Volume Icon ---
+    this.volumeIcon = this.add.image(35, 35, "volumeIcon")
+      .setDisplaySize(24, 24)
+      .setDepth(6);
 
-        const createButton = (x, y, labelText, onClick) => {
-            const border = this.add.rectangle(0, 0, 304, 64, 0x7f1a02).setDepth(3);
-            border.setStrokeStyle(3, 0xdcc89f);
-            const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
-            const label = this.add
-                .text(0, 0, labelText, {
-                    fontSize: "24px",
-                    fontFamily: '"Jersey 10", sans-serif',
-                    color: "#dcc89f",
-                })
-                .setOrigin(0.5)
-                .setDepth(3);
+    // Hover effect for button
+    this.volumeButton.on("pointerover", () => {
+      this.volumeButton.setFillStyle(0xa8321a);
+    });
+    this.volumeButton.on("pointerout", () => {
+      this.volumeButton.setFillStyle(0x7f1a02);
+    });
 
-            const button = this.add.container(x, y, [border, rect, label]).setDepth(3);
+    this.volumeButton.on("pointerdown", () => {
+      this.toggleVolumeSlider();
+    });
 
-            rect.setInteractive({ useHandCursor: true });
+    const leader_icon = this.add.image(this.scale.width - 50, 50, "leaderboardIcon")
+      .setInteractive()
+      .setScale(0.10)
+      .setOrigin(0.5)
+      .setDepth(5)
+      .on("pointerdown", () => {
+        this.scene.start("Leaderboard");
+      });
 
-            rect.on("pointerover", () => {
-                rect.setFillStyle(0xa8321a);
-                this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
-            });
+    // Fixed: reference the right variable for hover effects
+    leader_icon.on("pointerover", () => leader_icon.setScale(0.55));
+    leader_icon.on("pointerout", () => leader_icon.setScale(0.5));
+  }
 
-            rect.on("pointerout", () => {
-                rect.setFillStyle(0x7f1a02);
-                this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
-            });
+  update() {
+    if (this.clouds) {
+      this.clouds.x -= this.cloudSpeed;
 
-            rect.on("pointerdown", () => {
-                if (this.game.sfxVolume > 0) {
-                    this.sound.play("selection", { volume: this.game.sfxVolume });
-                }
-                const tween = this.tweens.add({
-                    targets: button,
-                    scale: 0.9,
-                    duration: 80,
-                    yoyo: true,
-                    ease: "Power1",
-                });
-                tween.once("complete", onClick);
-            });
-
-            return button;
-        };
-
-        const totalButtons = options.length;
-        const spacing = 100;
-        const blockHeight = (totalButtons - 1) * spacing;
-        const startY = height / 2 - blockHeight / 2;
-
-        options.forEach((option, index) => {
-            createButton(width / 2, startY + index * spacing, get_option_text(option), () => {
-                selectedOptions.type = option;
-                if (this.game.musicManager) {
-                    this.game.musicManager.stop();
-                }
-                if (option === "equation") {
-                    this.startEquationMode();
-                } else {
-                    this.startGame(selectedOptions);
-                }
-            });
-        });
-
-        // --- Volume Button (top-left) ---
-        this.volumeButton = this.add.circle(35, 35, 20, 0x7f1a02).setDepth(5).setInteractive();
-        this.volumeButton.setStrokeStyle(2, 0xdcc89f);
-
-        // --- Volume Icon ---
-        this.volumeIcon = this.add.image(35, 35, "volumeIcon")
-            .setDisplaySize(24, 24)
-            .setDepth(6);
-
-        // Hover effect for button
-        this.volumeButton.on("pointerover", () => {
-            this.volumeButton.setFillStyle(0xa8321a);
-        });
-        this.volumeButton.on("pointerout", () => {
-            this.volumeButton.setFillStyle(0x7f1a02);
-        });
-
-        this.volumeButton.on("pointerdown", () => {
-            this.toggleVolumeSlider();
-        });
-
-        const leader_icon = this.add.image(this.scale.width - 50, 50, 'leaderboardIcon')
-            .setInteractive()
-            .setScale(0.10)
-            .setOrigin(0.5)
-            .setDepth(5)
-            .on('pointerdown', () => {
-                this.scene.start('Leaderboard');
-            });
-
-        // Optional hover effect
-        leader_icon.on('pointerover', () => icon.setScale(0.55));
-        leader_icon.on('pointerout', () => icon.setScale(0.5));
+      // Pac-Man wrap
+      if (this.clouds.x + this.clouds.displayWidth / 2 < 0) {
+        this.clouds.x = this.scale.width + this.clouds.displayWidth / 2;
+      }
+      if (this.clouds.x - this.clouds.displayWidth / 2 > this.scale.width) {
+        this.clouds.x = -this.clouds.displayWidth / 2;
+      }
     }
+  }
 
-    update() {
-        if (this.clouds) {
-            this.clouds.x -= this.cloudSpeed;
+  startGame(selectedOptions) {
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.cameras.main.once("camerafadeoutcomplete", () => {
+      this.scene.start("MainScene", { type: selectedOptions.type });
+    });
+  }
 
-            // Pac-Man wrap
-            if (this.clouds.x + this.clouds.displayWidth / 2 < 0) {
-                this.clouds.x = this.scale.width + this.clouds.displayWidth / 2;
-            }
-            if (this.clouds.x - this.clouds.displayWidth / 2 > this.scale.width) {
-                this.clouds.x = -this.clouds.displayWidth / 2;
-            }
-        }
+  // New: route to the new gamemode’s level select
+  startGameMode3() {
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.cameras.main.once("camerafadeoutcomplete", () => {
+      this.scene.start("GM3LevelSelect");
+    });
+  }
+
+  toggleVolumeSlider() {
+    if (this.volumeSliderBox) {
+      this.volumeSliderBox.destroy();
+      this.volumeSliderTrack.destroy();
+      this.volumeSliderKnob.destroy();
+      this.volumeSliderBox = null;
+      this.volumeSliderTrack = null;
+      this.volumeSliderKnob = null;
+    } else {
+      const boxWidth = 40;
+      const boxHeight = 120;
+      const boxX = this.volumeButton.x;
+      const boxY = this.volumeButton.y + boxHeight / 2 + 30;
+
+      this.volumeSliderBox = this.add.rectangle(boxX, boxY, boxWidth, boxHeight, 0x7f1a02)
+        .setOrigin(0.5)
+        .setDepth(3)
+        .setStrokeStyle(2, 0xdcc89f);
+
+      const sliderX = boxX;
+      const sliderY = boxY;
+      this.volumeSliderTrack = this.add.rectangle(sliderX, sliderY, 4, 100, 0xdcc89f).setDepth(4);
+
+      let knobY = sliderY + 50 - this.game.sfxVolume * 100;
+      this.volumeSliderKnob = this.add.circle(sliderX, knobY, 8, 0xdcc89f)
+        .setDepth(5)
+        .setInteractive({ draggable: true });
+
+      this.volumeSliderKnob.setStrokeStyle(2, 0x7f1a02);
+
+      this.input.setDraggable(this.volumeSliderKnob);
+
+      this.volumeSliderKnob.on("pointerover", () => {
+        this.volumeSliderKnob.setFillStyle(0xf5deb3);
+      });
+      this.volumeSliderKnob.on("pointerout", () => {
+        this.volumeSliderKnob.setFillStyle(0xdcc89f);
+      });
+
+      this.volumeSliderKnob.on("drag", (pointer, dragX, dragY) => {
+        let clampedY = Phaser.Math.Clamp(dragY, sliderY - 50, sliderY + 50);
+        this.volumeSliderKnob.y = clampedY;
+
+        let newVolume = 1 - ((clampedY - (sliderY - 50)) / 100);
+        this.game.sfxVolume = newVolume;
+        localStorage.setItem("volume", newVolume);
+        this.sound.volume = newVolume;
+        this.game.musicManager.setVolume(newVolume);
+      });
     }
-
-    startGame(selectedOptions) {
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once("camerafadeoutcomplete", () => {
-            this.scene.start("MainScene", { type: selectedOptions.type });
-        });
-    }
-
-    startEquationMode() {
-        // fade out like the other modes (black), not special brown
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once("camerafadeoutcomplete", () => {
-            this.scene.start("EquationScene");
-        });
-    }
-
-    toggleVolumeSlider() {
-        if (this.volumeSliderBox) {
-            this.volumeSliderBox.destroy();
-            this.volumeSliderTrack.destroy();
-            this.volumeSliderKnob.destroy();
-            this.volumeSliderBox = null;
-            this.volumeSliderTrack = null;
-            this.volumeSliderKnob = null;
-        } else {
-            const boxWidth = 40;
-            const boxHeight = 120;
-            const boxX = this.volumeButton.x;
-            const boxY = this.volumeButton.y + boxHeight / 2 + 30;
-
-            this.volumeSliderBox = this.add.rectangle(boxX, boxY, boxWidth, boxHeight, 0x7f1a02)
-                .setOrigin(0.5)
-                .setDepth(3)
-                .setStrokeStyle(2, 0xdcc89f);
-
-            const sliderX = boxX;
-            const sliderY = boxY;
-            this.volumeSliderTrack = this.add.rectangle(sliderX, sliderY, 4, 100, 0xdcc89f).setDepth(4);
-
-            let knobY = sliderY + 50 - this.game.sfxVolume * 100;
-            this.volumeSliderKnob = this.add.circle(sliderX, knobY, 8, 0xdcc89f)
-                .setDepth(5)
-                .setInteractive({ draggable: true });
-
-            this.volumeSliderKnob.setStrokeStyle(2, 0x7f1a02);
-
-            this.input.setDraggable(this.volumeSliderKnob);
-
-            this.volumeSliderKnob.on("pointerover", () => {
-                this.volumeSliderKnob.setFillStyle(0xf5deb3);
-            });
-            this.volumeSliderKnob.on("pointerout", () => {
-                this.volumeSliderKnob.setFillStyle(0xdcc89f);
-            });
-
-            this.volumeSliderKnob.on("drag", (pointer, dragX, dragY) => {
-                let clampedY = Phaser.Math.Clamp(dragY, sliderY - 50, sliderY + 50);
-                this.volumeSliderKnob.y = clampedY;
-
-                let newVolume = 1 - ((clampedY - (sliderY - 50)) / 100);
-                this.game.sfxVolume = newVolume;
-                localStorage.setItem("volume", newVolume);
-                this.sound.volume = newVolume;
-                this.game.musicManager.setVolume(newVolume);
-            });
-        }
-    }
-
-
+  }
 }
