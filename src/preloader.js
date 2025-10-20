@@ -43,6 +43,9 @@ export class Preloader extends Phaser.Scene {
             percentText.destroy();
         });
 
+        // ----- API URL -----
+        this.game.apiBaseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
         // --- Assets ---
         this.load.setPath("assets");
 
@@ -94,6 +97,10 @@ export class Preloader extends Phaser.Scene {
 
         // Excel file
         this.load.binary("excelData", "UpdatedAccountingElements.xlsx");
+
+        //leaderboard icon
+        this.load.image('leaderboardIcon', 'trophy_icon.png')
+        this.load.image('exitIcon', 'exit_icon.png');
 
         // Debug loader log
         this.load.on("progress", (progress) => {

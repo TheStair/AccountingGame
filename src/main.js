@@ -9,7 +9,10 @@ import { SplashScene } from "./scenes/SplashScene";
 import { MainMenuScene } from "./scenes/MainMenuScene";
 import { PauseScene } from "./scenes/PauseScene";
 import { SettingsScene } from "./scenes/SettingScene";
+import { Leaderboard } from "./scenes/leaderboard"
 import MusicManager from './gameobjects/MusicManager';
+
+
 // More information about config: https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
 const config = {
     type: Phaser.AUTO,
@@ -48,6 +51,7 @@ const config = {
         PauseScene,
         SettingsScene,
         EquationScene,
+        Leaderboard,
     ]
 };
 

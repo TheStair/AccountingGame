@@ -8,152 +8,153 @@ export class GameOverScene extends Scene {
     }
 
     init(data) {
-        this.cameras.main.fadeIn(1000, 0, 0, 0);
         this.end_points = data.points || 0;
-
-        // Ensure global sfxVolume is restored
-        this.game.sfxVolume = parseFloat(localStorage.getItem("volume"));
-        if (isNaN(this.game.sfxVolume)) this.game.sfxVolume = 1.0;
+        this.gameKey = data.gameKey || "game1"; // pass the game key from your game scene
     }
 
-    create() {
-        // --- Background Music (menu_bgm) ---
-        if (this.sound.locked) {
-            this.sound.once("unlocked", () => {
-                this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-                this.game.musicManager.play(this, "menu_bgm");
-            });
-        } else {
-            this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-            this.game.musicManager.play(this, "menu_bgm");
-        }
-
-        // --- Backgrounds ---
+    async create() {
+        // --- Background + Text Setup ---
         this.add.image(0, 0, "background").setOrigin(0, 0);
 
-        const FIRST_RECTANGLE_HEIGHT = 180;
-        const SECOND_RECTANGLE_HEIGHT = 70;
-        const vertical_shift_to_center = -SECOND_RECTANGLE_HEIGHT / 2;
+        this.add.rectangle(
+        this.scale.width / 2,   // center X
+        this.scale.height / 2,  // center Y
+        this.scale.width,       // full width
+        this.scale.height,      // full height
+        0x000000,               // black
+        0.6                     // opacity (0 = transparent, 1 = solid)
+        ).setOrigin(0.5);
+
+        const centerX = this.scale.width / 2;
+        const centerY = this.scale.height / 2;
 
         this.add
-            .rectangle(
-                0,
-                this.scale.height / 2 + vertical_shift_to_center,
-                this.scale.width,
-                FIRST_RECTANGLE_HEIGHT,
-                0xd8dde3
-            )
-            .setAlpha(0.8)
-            .setOrigin(0, 0.5);
+            .bitmapText(centerX, centerY - 60, "knighthawks", "GAME OVER", 64)
+            .setOrigin(0.5);
 
+        const scoreText = this.add
+            .bitmapText(centerX, centerY, "pixelfont", `Your Score: ${this.end_points}`, 28)
+            .setOrigin(0.5);
+
+        // --- Check if player qualifies ---
+        try {
+            const previewRes = await fetch(
+                `${this.game.apiBaseUrl}/preview?game=${this.gameKey}&score=${this.end_points}`
+            );
+            const result = await previewRes.json();
+
+            if (result.qualifies) {
+                this.showQualificationUI(centerX, centerY + 60, result.preview_rank);
+            } else {
+                this.add
+                    .bitmapText(centerX, centerY + 60, "pixelfont", "You did not make the leaderboard.", 24)
+                    .setOrigin(0.5)
+                    .setTint(0xff5555);
+            }
+        } catch (err) {
+            console.error("Error checking leaderboard preview:", err);
+            this.add
+                .bitmapText(centerX, centerY + 60, "pixelfont", "Error connecting to leaderboard.", 24)
+                .setOrigin(0.5)
+                .setTint(0xff5555);
+        }
+
+        // --- Buttons ---
+        this.createMenuButtons(centerX, centerY + 150);
+    }
+
+    showQualificationUI(centerX, centerY, rank) {
+        // Success message
         this.add
-            .rectangle(
-                0,
-                this.scale.height / 2 +
-                    FIRST_RECTANGLE_HEIGHT / 2 +
-                    SECOND_RECTANGLE_HEIGHT / 2 +
-                    vertical_shift_to_center,
-                this.scale.width,
-                SECOND_RECTANGLE_HEIGHT,
-                0x000000
-            )
-            .setAlpha(0.8)
-            .setOrigin(0, 0.5);
-
-        // --- Game Over Text ---
-        const gameover_text = this.add
-            .bitmapText(
-                this.scale.width / 2,
-                this.scale.height / 2 + vertical_shift_to_center - 20,
-                "knighthawks",
-                "GAME\nOVER",
-                62,
-                1
-            )
-            .setOrigin(0.5, 0.5);
-        gameover_text.postFX.addShine();
-
-        // --- Score Display ---
-        this.add
-            .bitmapText(
-                this.scale.width / 2,
-                this.scale.height / 2 + 65 + vertical_shift_to_center,
-                "pixelfont",
-                `YOUR POINTS: ${this.end_points}`,
-                24
-            )
-            .setOrigin(0.5, 0.5)
-            .setTint(0x000000);
-
-        // --- Play Again Button ---
-        const playAgainText = this.add
-            .text(
-                this.scale.width / 4,
-                this.scale.height / 2 +
-                    FIRST_RECTANGLE_HEIGHT / 2 +
-                    SECOND_RECTANGLE_HEIGHT / 2 +
-                    vertical_shift_to_center,
-                "Play Again",
-                {
-                    fontSize: "32px",
-                    color: "#ffffff",
-                    padding: { left: 10, right: 10, top: 5, bottom: 5 },
-                }
-            )
+            .bitmapText(centerX, centerY, "pixelfont", `🎉 You made the leaderboard! Rank #${rank}`, 26)
             .setOrigin(0.5)
-            .setInteractive();
+            .setTint(0x00ff88);
 
-        const playAgainTextRect = this.add.rectangle(
-            playAgainText.x,
-            playAgainText.y,
-            playAgainText.width,
-            playAgainText.height
-        );
-        playAgainTextRect.setStrokeStyle(2, 0xffffff);
+        this.add
+            .bitmapText(centerX, centerY + 40, "pixelfont", "Enter your initials:", 24)
+            .setOrigin(0.5);
 
-        playAgainText.on("pointerdown", () => {
-            if (this.game.sfxVolume > 0) {
-                this.sound.play("selection", { volume: this.game.sfxVolume });
+        // Text input (simplest Phaser method: DOM element)
+        const input = this.add.dom(centerX, centerY + 80, "input", {
+            type: "text",
+            maxlength: 3,
+            fontSize: "24px",
+            textAlign: "center",
+            textTransform: "uppercase",
+            width: "80px",
+        });
+        input.node.style.textTransform = "uppercase";
+
+        // Submit button
+        const submitBtn = this.add
+            .text(centerX, centerY + 130, "Submit", {
+                fontSize: "28px",
+                color: "#ffffff",
+                backgroundColor: "#007755",
+                padding: { x: 10, y: 5 },
+            })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+
+        submitBtn.on("pointerdown", async () => {
+            const username = input.node.value.toUpperCase().slice(0, 3) || "AAA";
+
+            try {
+                const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        game: this.gameKey,
+                        username,
+                        score: this.end_points,
+                    }),
+                });
+
+                if (!res.ok) throw new Error(`Submit failed (${res.status})`);
+
+                const result = await res.json();
+
+                // ✅ Optional visual feedback before switching scenes
+                this.add
+                    .bitmapText(centerX, centerY + 180, "pixelfont", "Score submitted!", 24)
+                    .setOrigin(0.5)
+                    .setTint(0x00ff00);
+
+                // ✅ Slight delay for polish (so the player sees confirmation)
+                this.time.delayedCall(1000, () => {
+                    // Move to Leaderboard scene
+                    this.scene.start("Leaderboard", {
+                        gameKey: this.gameKey,   // so leaderboard knows which mode to show
+                        highlightName: username, // optional: highlight the new entry
+                    });
+                });
+
+            } catch (err) {
+                console.error("Error submitting score:", err);
+                this.add
+                    .bitmapText(centerX, centerY + 180, "pixelfont", "Submission failed.", 24)
+                    .setOrigin(0.5)
+                    .setTint(0xff0000);
             }
-            if (this.game.musicManager) {
-                this.game.musicManager.stop(); // stop menu music cleanly
-            }
+        });
+    }
+
+    createMenuButtons(centerX, baseY) {
+        const buttonStyle = {
+            fontSize: "30px",
+            color: "#ffffff",
+            padding: { left: 10, right: 10, top: 5, bottom: 5 },
+            backgroundColor: "#333333",
+        };
+
+        const playAgain = this.add.text(centerX - 150, baseY, "Play Again", buttonStyle).setOrigin(0.5);
+        const mainMenu = this.add.text(centerX + 150, baseY, "Main Menu", buttonStyle).setOrigin(0.5);
+
+        playAgain.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
             this.scene.start("MainScene");
         });
 
-        // --- Main Menu Button ---
-        const mainMenuText = this.add
-            .text(
-                (this.scale.width * 3) / 4,
-                this.scale.height / 2 +
-                    FIRST_RECTANGLE_HEIGHT / 2 +
-                    SECOND_RECTANGLE_HEIGHT / 2 +
-                    vertical_shift_to_center,
-                "Main Menu",
-                {
-                    fontSize: "32px",
-                    color: "#ffffff",
-                    padding: { left: 10, right: 10, top: 5, bottom: 5 },
-                }
-            )
-            .setOrigin(0.5)
-            .setInteractive();
-
-        const mainMenuTextRect = this.add.rectangle(
-            mainMenuText.x,
-            mainMenuText.y,
-            mainMenuText.width,
-            mainMenuText.height
-        );
-        mainMenuTextRect.setStrokeStyle(2, 0xffffff);
-
-        mainMenuText.on("pointerdown", () => {
-            if (this.game.sfxVolume > 0) {
-                this.sound.play("selection", { volume: this.game.sfxVolume });
-            }
-            if (this.game.musicManager) {
-                this.game.musicManager.stop(); // stop menu music cleanly
-            }
+        mainMenu.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
             this.scene.start("MainMenuScene");
         });
     }

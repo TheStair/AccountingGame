@@ -5,7 +5,7 @@ CREATE DATABASE leaderboard OWNER game_app;
 
 -- Raw score attempts
 CREATE TABLE scores (
-  game     TEXT NOT NULL CHECK (game IN ('game1','game2','game3')),
+  game     TEXT NOT NULL CHECK (game IN ('game1','game2','game3-1', "game3-2", "game3-3")),
   username VARCHAR(3) NOT NULL CHECK (username ~ '^[a-z A-Z 0-9]{3}$'),
   score    INTEGER NOT NULL CHECK (score >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- hidden tie-breaker
