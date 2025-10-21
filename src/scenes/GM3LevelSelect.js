@@ -1,4 +1,4 @@
-// src/scenes/gamemode3/GM3LevelSelect.js
+// src/scenes/GM3LevelSelect.js
 import Phaser from "phaser";
 
 export default class GM3LevelSelect extends Phaser.Scene {
@@ -9,34 +9,145 @@ export default class GM3LevelSelect extends Phaser.Scene {
   create(data) {
     const { width, height } = this.scale;
 
-    this.add.text(width / 2, height * 0.18, "GameMode 3 — Select Level", {
-      fontSize: "28px",
-      color: "#ffffff",
-    }).setOrigin(0.5);
+    // Background (same as main menu)
+    this.add.image(width / 2, height / 2, "home_bg")
+      .setOrigin(0.5)
+      .setDisplaySize(width, height)
+      .setDepth(0);
 
+    // Moving clouds
+    this.clouds = this.add.image(width / 2, height / 2 - 50, "home_clouds")
+      .setOrigin(0.5)
+      .setScale(0.5)
+      .setDepth(1);
+    this.cloudSpeed = 0.3;
+
+    // --- Backwards Arrow Button (top-left) ---
+    const backContainer = this.add.container(90, 46).setDepth(5);
+    const w = 60, h = 40;
+
+    const backBorder = this.add.rectangle(0, 0, w + 4, h + 4, 0x7f1a02);
+    backBorder.setStrokeStyle(2, 0xdcc89f);
+
+    const backRect = this.add.rectangle(0, 0, w, h, 0x7f1a02);
+    backRect.setStrokeStyle(2, 0xdcc89f);
+
+    // Thicker arrow (bolder stroke)
+const backArrow = this.add.text(0, 0, "←", {
+  fontSize: "32px",
+  fontFamily: '"Jersey 10", sans-serif',
+  color: "#dcc89f",
+  align: "center",
+  stroke: "#dcc89f",
+  strokeThickness: 2,
+}).setOrigin(0.5);
+
+backContainer.add([backBorder, backRect, backArrow]);
+
+// 🔧 Center the arrow precisely inside the rectangle
+Phaser.Display.Align.In.Center(backArrow, backRect);
+backArrow.y -= 3;
+
+
+    backRect.setInteractive({ useHandCursor: true });
+
+    // Hover: highlight color + enlarge container slightly
+    backRect.on("pointerover", () => {
+      backRect.setFillStyle(0xa8321a);
+      this.tweens.killTweensOf(backContainer);
+      this.tweens.add({
+        targets: backContainer,
+        scale: 1.1,        // slightly larger
+        duration: 150,
+        ease: "Sine.easeOut",
+      });
+    });
+
+    backRect.on("pointerout", () => {
+      backRect.setFillStyle(0x7f1a02);
+      this.tweens.killTweensOf(backContainer);
+      this.tweens.add({
+        targets: backContainer,
+        scale: 1,
+        duration: 150,
+        ease: "Sine.easeIn",
+      });
+    });
+
+    // Click: sound + transition
+    backRect.on("pointerdown", () => {
+      if (this.game?.sfxVolume > 0)
+        this.sound.play("selection", { volume: this.game.sfxVolume });
+      this.scene.start("MainMenuScene");
+    });
+
+    // --- Level Buttons aligned like main menu ---
     const levels = [
       { key: "GM3Level1", label: "Level 1" },
       { key: "GM3Level2", label: "Level 2" },
       { key: "GM3Level3", label: "Level 3" },
     ];
+    const totalButtons = levels.length;
+    const spacing = 100;
+    const blockHeight = (totalButtons - 1) * spacing;
+    const startY = height / 2 - blockHeight / 2;
 
     levels.forEach((lvl, i) => {
-      const y = 0.38 + i * 0.14;
-      const btn = this.add.rectangle(width / 2, height * y, width * 0.45, 56, 0x303030)
-        .setInteractive({ useHandCursor: true });
-      const txt = this.add.text(btn.x, btn.y, lvl.label, { fontSize: "22px", color: "#fff" }).setOrigin(0.5);
-
-      btn.on("pointerover", () => btn.setFillStyle(0x3a3a3a));
-      btn.on("pointerout", () => btn.setFillStyle(0x303030));
-      btn.on("pointerdown", () => this.scene.start(lvl.key));
+      this._makeUIButton(width / 2, startY + i * spacing, lvl.label, () => {
+        this.scene.start(lvl.key);
+      });
     });
 
-    if (data?.lastResult) {
-      const { level, score, success } = data.lastResult;
-      this.add.text(width / 2, height * 0.85,
-        `Last: Level ${level} — ${success ? "Cleared" : "Time Up"} — Score ${score}`,
-        { fontSize: "18px", color: "#cccccc" }
-      ).setOrigin(0.5);
+    // ESC returns to main menu
+    this._escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC, false);
+    this._escKey.on("down", () => this.scene.start("MainMenuScene"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this._escKey?.destroy());
+  }
+
+  update() {
+    if (this.clouds) {
+      this.clouds.x -= this.cloudSpeed;
+      if (this.clouds.x + this.clouds.displayWidth / 2 < 0)
+        this.clouds.x = this.scale.width + this.clouds.displayWidth / 2;
+      if (this.clouds.x - this.clouds.displayWidth / 2 > this.scale.width)
+        this.clouds.x = -this.clouds.displayWidth / 2;
     }
+  }
+
+  _makeUIButton(x, y, label, onClick, opts = {}) {
+    const w = opts.w ?? 300;
+    const h = opts.h ?? 60;
+
+    const border = this.add.rectangle(0, 0, w + 4, h + 4, 0x7f1a02).setDepth(3);
+    border.setStrokeStyle(3, 0xdcc89f);
+
+    const rect = this.add.rectangle(0, 0, w, h, 0x7f1a02).setDepth(3);
+    rect.setStrokeStyle(2, 0xdcc89f);
+
+    const text = this.add.text(0, 0, label, {
+      fontSize: opts.fontSize ?? "24px",
+      fontFamily: '"Jersey 10", sans-serif',
+      color: "#dcc89f",
+    }).setOrigin(0.5).setDepth(4);
+
+    const btn = this.add.container(x, y, [border, rect, text]).setDepth(3);
+
+    rect.setInteractive({ useHandCursor: true });
+    rect.on("pointerover", () => {
+      rect.setFillStyle(0xa8321a);
+      this.tweens.add({ targets: btn, scale: 1.05, duration: 140, ease: "Power1" });
+    });
+    rect.on("pointerout", () => {
+      rect.setFillStyle(0x7f1a02);
+      this.tweens.add({ targets: btn, scale: 1.0, duration: 140, ease: "Power1" });
+    });
+    rect.on("pointerdown", () => {
+      if (this.game?.sfxVolume > 0)
+        this.sound.play("selection", { volume: this.game.sfxVolume });
+      const t = this.tweens.add({ targets: btn, scale: 0.92, duration: 90, yoyo: true, ease: "Power1" });
+      t.once("complete", onClick);
+    });
+
+    return btn;
   }
 }

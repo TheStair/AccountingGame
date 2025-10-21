@@ -12,7 +12,7 @@ export class MainMenuScene extends Scene {
   create() {
     const { width, height } = this.scale;
 
-    // Restore global SFX/music volume
+    // --- Restore global SFX/music volume ---
     this.game.sfxVolume = parseFloat(localStorage.getItem("volume"));
     if (isNaN(this.game.sfxVolume)) this.game.sfxVolume = 1.0;
 
@@ -40,18 +40,17 @@ export class MainMenuScene extends Scene {
       .setScale(0.8);
 
     // --- Music ---
-    if (this.sound.locked) {
-      this.sound.once("unlocked", () => {
-        this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
-        this.game.musicManager.play(this, "menu_bgm");
-      });
-    } else {
+    const setMusic = () => {
       this.game.musicManager.setVolume(this.game.sfxVolume ?? 1.0);
       this.game.musicManager.play(this, "menu_bgm");
+    };
+    if (this.sound.locked) {
+      this.sound.once("unlocked", setMusic);
+    } else {
+      setMusic();
     }
 
     // --- Menu Buttons ---
-    // Replaced "equation" with the new third gamemode key "gamemode3"
     const options = ["debit_credit", "accounting", "gamemode3"];
     const selectedOptions = { type: "debit_credit" };
 
@@ -65,7 +64,9 @@ export class MainMenuScene extends Scene {
     const createButton = (x, y, labelText, onClick) => {
       const border = this.add.rectangle(0, 0, 304, 64, 0x7f1a02).setDepth(3);
       border.setStrokeStyle(3, 0xdcc89f);
+
       const rect = this.add.rectangle(0, 0, 300, 60, 0x7f1a02).setDepth(3);
+
       const label = this.add
         .text(0, 0, labelText, {
           fontSize: "24px",
@@ -81,12 +82,22 @@ export class MainMenuScene extends Scene {
 
       rect.on("pointerover", () => {
         rect.setFillStyle(0xa8321a);
-        this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
+        this.tweens.add({
+          targets: button,
+          scale: 1.05,
+          duration: 150,
+          ease: "Power1",
+        });
       });
 
       rect.on("pointerout", () => {
         rect.setFillStyle(0x7f1a02);
-        this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
+        this.tweens.add({
+          targets: button,
+          scale: 1,
+          duration: 150,
+          ease: "Power1",
+        });
       });
 
       rect.on("pointerdown", () => {
@@ -112,52 +123,94 @@ export class MainMenuScene extends Scene {
     const startY = height / 2 - blockHeight / 2;
 
     options.forEach((option, index) => {
-      createButton(width / 2, startY + index * spacing, get_option_text(option), () => {
-        selectedOptions.type = option;
-        if (this.game.musicManager) {
-          this.game.musicManager.stop();
+      createButton(
+        width / 2,
+        startY + index * spacing,
+        get_option_text(option),
+        () => {
+          selectedOptions.type = option;
+          if (this.game.musicManager) this.game.musicManager.stop();
+          if (option === "gamemode3") {
+            this.startGameMode3();
+          } else {
+            this.startGame(selectedOptions);
+          }
         }
-        if (option === "gamemode3") {
-          this.startGameMode3();
-        } else {
-          this.startGame(selectedOptions);
-        }
-      });
+      );
     });
 
+    // --- Icon constants ---
+    const ICON_Y = 40; // consistent vertical alignment
+    const ICON_MARGIN = 50;
+
     // --- Volume Button (top-left) ---
-    this.volumeButton = this.add.circle(35, 35, 20, 0x7f1a02).setDepth(5).setInteractive();
+    this.volumeButton = this.add
+      .circle(ICON_MARGIN, ICON_Y, 20, 0x7f1a02)
+      .setDepth(5)
+      .setInteractive();
     this.volumeButton.setStrokeStyle(2, 0xdcc89f);
 
     // --- Volume Icon ---
-    this.volumeIcon = this.add.image(35, 35, "volumeIcon")
+    this.volumeIcon = this.add
+      .image(ICON_MARGIN, ICON_Y, "volumeIcon")
       .setDisplaySize(24, 24)
       .setDepth(6);
 
-    // Hover effect for button
+    // Hover effect for volume button
     this.volumeButton.on("pointerover", () => {
       this.volumeButton.setFillStyle(0xa8321a);
     });
     this.volumeButton.on("pointerout", () => {
       this.volumeButton.setFillStyle(0x7f1a02);
     });
-
     this.volumeButton.on("pointerdown", () => {
       this.toggleVolumeSlider();
     });
 
-    const leader_icon = this.add.image(this.scale.width - 50, 50, "leaderboardIcon")
-      .setInteractive()
-      .setScale(0.10)
-      .setOrigin(0.5)
-      .setDepth(5)
-      .on("pointerdown", () => {
-        this.scene.start("Leaderboard");
-      });
+    // --- Leaderboard Icon (top-right, same height as volume icon) ---
+    const BASE_SCALE = 0.05;
+    const HOVER_SCALE = BASE_SCALE * 1.15;
 
-    // Fixed: reference the right variable for hover effects
-    leader_icon.on("pointerover", () => leader_icon.setScale(0.55));
-    leader_icon.on("pointerout", () => leader_icon.setScale(0.5));
+    const leader_icon = this.add
+      .image(width - ICON_MARGIN, ICON_Y, "leaderboardIcon")
+      .setInteractive({ useHandCursor: true })
+      .setScale(BASE_SCALE)
+      .setOrigin(0.5)
+      .setDepth(5);
+
+    leader_icon.on("pointerover", () => {
+      this.tweens.killTweensOf(leader_icon);
+      this.tweens.add({
+        targets: leader_icon,
+        scale: HOVER_SCALE,
+        duration: 120,
+        ease: "Sine.easeOut",
+      });
+      leader_icon.setTint(0xffffff);
+    });
+
+    leader_icon.on("pointerout", () => {
+      this.tweens.killTweensOf(leader_icon);
+      this.tweens.add({
+        targets: leader_icon,
+        scale: BASE_SCALE,
+        duration: 120,
+        ease: "Sine.easeIn",
+      });
+      leader_icon.clearTint();
+    });
+
+    leader_icon.on("pointerdown", () => {
+      this.tweens.killTweensOf(leader_icon);
+      this.tweens.add({
+        targets: leader_icon,
+        scale: BASE_SCALE * 0.92,
+        duration: 70,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+        onComplete: () => this.scene.start("Leaderboard"),
+      });
+    });
   }
 
   update() {
@@ -181,7 +234,6 @@ export class MainMenuScene extends Scene {
     });
   }
 
-  // New: route to the new gamemode’s level select
   startGameMode3() {
     this.cameras.main.fadeOut(500, 0, 0, 0);
     this.cameras.main.once("camerafadeoutcomplete", () => {
@@ -203,22 +255,25 @@ export class MainMenuScene extends Scene {
       const boxX = this.volumeButton.x;
       const boxY = this.volumeButton.y + boxHeight / 2 + 30;
 
-      this.volumeSliderBox = this.add.rectangle(boxX, boxY, boxWidth, boxHeight, 0x7f1a02)
+      this.volumeSliderBox = this.add
+        .rectangle(boxX, boxY, boxWidth, boxHeight, 0x7f1a02)
         .setOrigin(0.5)
         .setDepth(3)
         .setStrokeStyle(2, 0xdcc89f);
 
       const sliderX = boxX;
       const sliderY = boxY;
-      this.volumeSliderTrack = this.add.rectangle(sliderX, sliderY, 4, 100, 0xdcc89f).setDepth(4);
+      this.volumeSliderTrack = this.add
+        .rectangle(sliderX, sliderY, 4, 100, 0xdcc89f)
+        .setDepth(4);
 
       let knobY = sliderY + 50 - this.game.sfxVolume * 100;
-      this.volumeSliderKnob = this.add.circle(sliderX, knobY, 8, 0xdcc89f)
+      this.volumeSliderKnob = this.add
+        .circle(sliderX, knobY, 8, 0xdcc89f)
         .setDepth(5)
         .setInteractive({ draggable: true });
 
       this.volumeSliderKnob.setStrokeStyle(2, 0x7f1a02);
-
       this.input.setDraggable(this.volumeSliderKnob);
 
       this.volumeSliderKnob.on("pointerover", () => {
@@ -229,10 +284,10 @@ export class MainMenuScene extends Scene {
       });
 
       this.volumeSliderKnob.on("drag", (pointer, dragX, dragY) => {
-        let clampedY = Phaser.Math.Clamp(dragY, sliderY - 50, sliderY + 50);
+        const clampedY = Phaser.Math.Clamp(dragY, sliderY - 50, sliderY + 50);
         this.volumeSliderKnob.y = clampedY;
 
-        let newVolume = 1 - ((clampedY - (sliderY - 50)) / 100);
+        const newVolume = 1 - (clampedY - (sliderY - 50)) / 100;
         this.game.sfxVolume = newVolume;
         localStorage.setItem("volume", newVolume);
         this.sound.volume = newVolume;
