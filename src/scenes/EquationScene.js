@@ -11,6 +11,7 @@ export class EquationScene extends Scene {
     this.currentLevel = null; // 1 | 2 | 3 after selection
     this.currentQuestion = 0;
     this.questionsPerLevel = 10; // 10 questions per level
+    this.gameKey = "game3-1"
 
     // Time limit (seconds)
     this.levelTime = 90;
@@ -341,6 +342,7 @@ export class EquationScene extends Scene {
       const y = height * 0.45 + idx * 110;
       const btn = this.makeButton(width / 2, y, 360, 80, label, () => {
         this.currentLevel = idx + 1;
+        this.gameKey = `game3-${idx+1}`
         this.cleanupLevelSelect();
         this.startLevelFlow();
       });
@@ -593,6 +595,6 @@ export class EquationScene extends Scene {
     if (this.timerEvent) this.timerEvent.remove();
     if (this.timerText) this.timerText.destroy();
 
-    this.scene.start("GameOverScene", { score: this.score });
+    this.scene.start("GameOverScene", { points: this.score, gameKey: this.gameKey, });
   }
 }
