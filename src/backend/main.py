@@ -16,7 +16,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-ALLOWED_GAMES = {"game1", "game2", "game3"}
+ALLOWED_GAMES = {"game1", "game2", "game3-1", "game3-2", "game3-3"}
 USERNAME_RE = re.compile(r"^[A-Za-z]{3}$")
 TOP_N = 100
  
@@ -131,13 +131,13 @@ SELECT score FROM ranked;
 SQL_UPSERT = """
 INSERT INTO public.scores (game, username, score)
 VALUES (%s, %s, %s)
-RETURNING game, username, score;
+RETURNING id, game, score;
 """
 
 SQL_PRUNE = """
 -- Keep only Top-N rows for this game (score DESC, then created_at, then username)
 WITH to_drop AS (
-  SELECT username
+  SELECT id
   FROM public.scores
   WHERE game = %s
   ORDER BY score DESC, created_at ASC, username ASC
@@ -145,18 +145,18 @@ WITH to_drop AS (
 )
 DELETE FROM public.scores s
 USING to_drop d
-WHERE s.game = %s AND s.username = d.username;
+WHERE s.id = d.id;
 """
 
 SQL_GET_RANK_FOR_USER = """
 SELECT rank FROM (
   SELECT
-    username,
+    id,
     RANK() OVER (ORDER BY score DESC, created_at ASC, username ASC) AS rank
   FROM public.scores
   WHERE game = %s
 ) r
-WHERE r.username = %s;
+WHERE r.id = %s;
 """
 
 class SubmitPayload(BaseModel):
@@ -191,41 +191,19 @@ def submit_score(payload: SubmitPayload = Body(...)):
                 row = cur.fetchone()
                 cutoff = row[0] if row else None
 
-                # Qualification rule:
-                # - If not full -> qualifies
-                # - If full    -> only scores strictly greater than cutoff qualify
-                #   (tie on cutoff loses because created_at will be later)
-                qualifies = (cutoff is None) or (payload.score > cutoff)
 
-                if not qualifies:
-                    # Still upsert if this improves the user's own best, but it will be pruned immediately.
-                    cur.execute(SQL_UPSERT, (payload.game, username, payload.score))
-                    # Prune to keep board stable
-                    cur.execute(SQL_PRUNE, (payload.game, TOP_N, payload.game))
-                    # Did it survive?
-                    cur.execute(SQL_GET_RANK_FOR_USER, (payload.game, username))
-                    r = cur.fetchone()
-                    survived = bool(r)
-                    return SubmitResult(
-                        accepted=survived,
-                        rank=(r[0] if survived else None),
-                        score=payload.score,
-                        username=username,
-                        game=payload.game,
-                    )
-
-                # 2) Upsert (improves personal best if higher)
                 cur.execute(SQL_UPSERT, (payload.game, username, payload.score))
-                stored_game, stored_user, stored_score = cur.fetchone()
+                row_id, stored_game, stored_score = cur.fetchone()
 
                 # 3) Prune beyond Top-N for this game
-                cur.execute(SQL_PRUNE, (payload.game, TOP_N, payload.game))
+                cur.execute(SQL_PRUNE, (payload.game, TOP_N))
 
-                # 4) Fetch rank for this user (if they survived pruning)
-                cur.execute(SQL_GET_RANK_FOR_USER, (payload.game, username))
+
+                # 5) Fetch its rank (by id, not username)
+                cur.execute(SQL_GET_RANK_FOR_USER, (payload.game, row_id))
                 r = cur.fetchone()
                 if not r:
-                    # Very rare, but possible under heavy contention
+                    # Rare case: pruned before rank check
                     return SubmitResult(
                         accepted=False,
                         rank=None,
