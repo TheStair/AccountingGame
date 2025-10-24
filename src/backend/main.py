@@ -198,9 +198,6 @@ def submit_score(payload: SubmitPayload = Body(...)):
                 # 3) Prune beyond Top-N for this game
                 cur.execute(SQL_PRUNE, (payload.game, TOP_N))
 
-                # 4) Get ID of just-inserted score (for rank lookup)
-                cur.execute("SELECT CURRVAL(pg_get_serial_sequence('public.scores', 'id'));")
-                row_id = cur.fetchone()[0]
 
                 # 5) Fetch its rank (by id, not username)
                 cur.execute(SQL_GET_RANK_FOR_USER, (payload.game, row_id))
