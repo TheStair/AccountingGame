@@ -131,13 +131,6 @@ SELECT score FROM ranked;
 SQL_UPSERT = """
 INSERT INTO public.scores (game, username, score)
 VALUES (%s, %s, %s)
-ON CONFLICT (game, username)
-DO UPDATE SET
-  score = GREATEST(public.scores.score, EXCLUDED.score),
-  created_at = CASE
-                 WHEN EXCLUDED.score > public.scores.score THEN NOW()
-                 ELSE public.scores.created_at
-               END
 RETURNING game, username, score;
 """
 

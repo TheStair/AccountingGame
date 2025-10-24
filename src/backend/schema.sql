@@ -14,24 +14,33 @@ CREATE TABLE scores (
 
 CREATE INDEX ON scores (id, game, score DESC, created_at ASC, username ASC);
 
-CREATE OR REPLACE FUNCTION prune_topN() RETURNS trigger AS $$
-DECLARE
-  N integer := 100;
-BEGIN
-  WITH to_drop AS (
-    SELECT username
-    FROM scores
-    WHERE game = NEW.game
-    ORDER BY score DESC, created_at ASC, username ASC
-    OFFSET N
-  )
-  DELETE FROM scores s
-  USING to_drop d
-  WHERE s.game = NEW.game AND s.username = d.username;
+DROP FUNCTION IF EXISTS prune_topN() CASCADE;
 
-  RETURN NULL;
+CREATE OR REPLACE FUNCTION prune_topN()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    N integer := 100;
+BEGIN
+    WITH to_drop AS (
+        SELECT id
+        FROM scores
+        WHERE game = NEW.game
+        ORDER BY score DESC, created_at ASC, username ASC
+        OFFSET N
+    )
+    DELETE FROM scores s
+    USING to_drop d
+    WHERE s.id = d.id;
+
+    RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
+
+
+
 
 CREATE TRIGGER scores_keep_topN
 AFTER INSERT OR UPDATE OF score ON scores

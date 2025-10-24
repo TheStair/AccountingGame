@@ -51,9 +51,9 @@ export class Leaderboard extends Scene {
         const modes = [
             { label: 'Game 1', key: 'game1' },
             { label: 'Game 2', key: 'game2' },
-            { label: 'Math 1', key: 'game3_beginner' },
-            { label: 'Math 2', key: 'game3_intermediate' },
-            { label: 'Math 3', key: 'game3_advanced' },
+            { label: 'Math 1', key: 'game3-1' },
+            { label: 'Math 2', key: 'game3-2' },
+            { label: 'Math 3', key: 'game3-3' },
         ];
 
         const base_url = this.game.apiBaseUrl;
