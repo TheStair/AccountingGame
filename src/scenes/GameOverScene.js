@@ -16,14 +16,16 @@ export class GameOverScene extends Scene {
         // --- Background + Text Setup ---
         this.add.image(0, 0, "background").setOrigin(0, 0);
 
-        this.add.rectangle(
-        this.scale.width / 2,   // center X
-        this.scale.height / 2,  // center Y
-        this.scale.width,       // full width
-        this.scale.height,      // full height
-        0x000000,               // black
-        0.6                     // opacity (0 = transparent, 1 = solid)
-        ).setOrigin(0.5);
+        this.add
+            .rectangle(
+                this.scale.width / 2, // center X
+                this.scale.height / 2, // center Y
+                this.scale.width, // full width
+                this.scale.height, // full height
+                0x000000, // black
+                0.6 // opacity (0 = transparent, 1 = solid)
+            )
+            .setOrigin(0.5);
 
         const centerX = this.scale.width / 2;
         const centerY = this.scale.height / 2;
@@ -33,7 +35,13 @@ export class GameOverScene extends Scene {
             .setOrigin(0.5);
 
         const scoreText = this.add
-            .bitmapText(centerX, centerY, "pixelfont", `Your Score: ${this.end_points}`, 28)
+            .bitmapText(
+                centerX,
+                centerY,
+                "pixelfont",
+                `Your Score: ${this.end_points}`,
+                28
+            )
             .setOrigin(0.5);
 
         // --- Check if player qualifies ---
@@ -44,17 +52,33 @@ export class GameOverScene extends Scene {
             const result = await previewRes.json();
 
             if (result.qualifies) {
-                this.showQualificationUI(centerX, centerY + 60, result.preview_rank);
+                this.showQualificationUI(
+                    centerX,
+                    centerY + 60,
+                    result.preview_rank
+                );
             } else {
                 this.add
-                    .bitmapText(centerX, centerY + 60, "pixelfont", "You did not make the leaderboard.", 24)
+                    .bitmapText(
+                        centerX,
+                        centerY + 60,
+                        "pixelfont",
+                        "You did not make the leaderboard.",
+                        24
+                    )
                     .setOrigin(0.5)
                     .setTint(0xff5555);
             }
         } catch (err) {
             console.error("Error checking leaderboard preview:", err);
             this.add
-                .bitmapText(centerX, centerY + 60, "pixelfont", "Error connecting to leaderboard.", 24)
+                .bitmapText(
+                    centerX,
+                    centerY + 60,
+                    "pixelfont",
+                    "Error connecting to leaderboard.",
+                    24
+                )
                 .setOrigin(0.5)
                 .setTint(0xff5555);
         }
@@ -66,12 +90,24 @@ export class GameOverScene extends Scene {
     showQualificationUI(centerX, centerY, rank) {
         // Success message
         this.add
-            .bitmapText(centerX, centerY, "pixelfont", `🎉 You made the leaderboard! Rank #${rank}`, 26)
+            .bitmapText(
+                centerX,
+                centerY,
+                "pixelfont",
+                `🎉 You made the leaderboard! Rank #${rank}`,
+                26
+            )
             .setOrigin(0.5)
             .setTint(0x00ff88);
 
         this.add
-            .bitmapText(centerX, centerY + 40, "pixelfont", "Enter your initials:", 24)
+            .bitmapText(
+                centerX,
+                centerY + 40,
+                "pixelfont",
+                "Enter your initials:",
+                24
+            )
             .setOrigin(0.5);
 
         // Text input (simplest Phaser method: DOM element)
@@ -97,7 +133,8 @@ export class GameOverScene extends Scene {
             .setInteractive({ useHandCursor: true });
 
         submitBtn.on("pointerdown", async () => {
-            const username = input.node.value.toUpperCase().slice(0, 3) || "AAA";
+            const username =
+                input.node.value.toUpperCase().slice(0, 3) || "AAA";
 
             try {
                 const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
@@ -116,7 +153,13 @@ export class GameOverScene extends Scene {
 
                 // ✅ Optional visual feedback before switching scenes
                 this.add
-                    .bitmapText(centerX, centerY + 180, "pixelfont", "Score submitted!", 24)
+                    .bitmapText(
+                        centerX,
+                        centerY + 180,
+                        "pixelfont",
+                        "Score submitted!",
+                        24
+                    )
                     .setOrigin(0.5)
                     .setTint(0x00ff00);
 
@@ -124,15 +167,20 @@ export class GameOverScene extends Scene {
                 this.time.delayedCall(1000, () => {
                     // Move to Leaderboard scene
                     this.scene.start("Leaderboard", {
-                        gameKey: this.gameKey,   // so leaderboard knows which mode to show
+                        gameKey: this.gameKey, // so leaderboard knows which mode to show
                         highlightName: username, // optional: highlight the new entry
                     });
                 });
-
             } catch (err) {
                 console.error("Error submitting score:", err);
                 this.add
-                    .bitmapText(centerX, centerY + 180, "pixelfont", "Submission failed.", 24)
+                    .bitmapText(
+                        centerX,
+                        centerY + 180,
+                        "pixelfont",
+                        "Submission failed.",
+                        24
+                    )
                     .setOrigin(0.5)
                     .setTint(0xff0000);
             }
@@ -147,15 +195,23 @@ export class GameOverScene extends Scene {
             backgroundColor: "#333333",
         };
 
-        const playAgain = this.add.text(centerX - 150, baseY, "Play Again", buttonStyle).setOrigin(0.5);
-        const mainMenu = this.add.text(centerX + 150, baseY, "Main Menu", buttonStyle).setOrigin(0.5);
+        const playAgain = this.add
+            .text(centerX - 150, baseY, "Play Again", buttonStyle)
+            .setOrigin(0.5);
+        const mainMenu = this.add
+            .text(centerX + 150, baseY, "Main Menu", buttonStyle)
+            .setOrigin(0.5);
 
-        playAgain.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
-            this.scene.start("MainScene");
-        });
+        playAgain
+            .setInteractive({ useHandCursor: true })
+            .on("pointerdown", () => {
+                this.scene.start("MainScene");
+            });
 
-        mainMenu.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
-            this.scene.start("MainMenuScene");
-        });
+        mainMenu
+            .setInteractive({ useHandCursor: true })
+            .on("pointerdown", () => {
+                this.scene.start("MainMenuScene");
+            });
     }
 }

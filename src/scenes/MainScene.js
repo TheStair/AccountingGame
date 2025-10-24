@@ -209,7 +209,7 @@ export class MainScene extends Scene {
 
     config = config;
 
-    game_key = "unknown"
+    game_key = "unknown";
 
     constructor() {
         super("MainScene");
@@ -244,7 +244,7 @@ export class MainScene extends Scene {
             this.config.basket_types = [DEBIT, CREDIT];
             this.config.belt_types = [NONE, NONE, NONE, DEBIT, CREDIT];
             this.config.belt_labels = [4, 5];
-            this.game_key = "game1"
+            this.game_key = "game1";
         } else {
             this.elements = this.getRandomAllElements(NUM_BALLS);
             this.config.basket_types = [
@@ -262,7 +262,7 @@ export class MainScene extends Scene {
                 REVENUES,
             ];
             this.config.belt_labels = [1, 2, 3, 4, 5];
-            this.game_key = "game2"
+            this.game_key = "game2";
         }
 
         this.answer_stats = new Map(
@@ -313,18 +313,44 @@ export class MainScene extends Scene {
         this.input.setDefaultCursor("default");
     }
     addBall() {
-        if (this.ballCount >= this.elements.length) return;
         if (this.balls.getLength() >= NUM_BALLS_AT_TIME) return;
 
-        const elem = this.elements[this.ballCount];
+        let elem;
 
-        // Pick a random starting conveyor belt
+        if (this.game_key === "game1") {
+            const type = Math.random() < 0.5 ? DEBIT : CREDIT;
+            const arr =
+                type === DEBIT
+                    ? this.normalBalance.map((row) => row[0]).filter(Boolean)
+                    : this.normalBalance.map((row) => row[1]).filter(Boolean);
+
+            const name = arr[Math.floor(Math.random() * arr.length)];
+            elem = { name, type, points: assignPoints(name) };
+        } else if (this.game_key === "game2") {
+            const types = [
+                ASSETS,
+                LIABILITIES,
+                EXPENSES,
+                REVENUES,
+                STOCKHOLDERS_EQUITY,
+            ];
+            const typeIndex = Math.floor(Math.random() * types.length);
+            const type = types[typeIndex];
+
+            const colIndex = typeIndex;
+            const col = this.allSheet
+                .map((row) => row?.[colIndex])
+                .filter(Boolean);
+
+            const name = col[Math.floor(Math.random() * col.length)];
+            elem = { name, type, points: assignPoints(name) };
+        }
+
         const starting_conveyor_belt =
             this.starting_conveyor_belts[
                 Math.floor(Math.random() * this.starting_conveyor_belts.length)
             ];
 
-        // Create the ball
         const ball = new Ball(
             this,
             starting_conveyor_belt.x,
@@ -334,10 +360,7 @@ export class MainScene extends Scene {
             this.difficulty
         );
 
-        // Assign the correct points
         ball.points = elem.points;
-
-        // Adjust hitbox to fit the pit
         const hit_box_radius = Math.min(
             ball.hit_box_radius,
             (this.ball_pit_height / 5) * 2
@@ -356,11 +379,15 @@ export class MainScene extends Scene {
         if (ball.state !== "picked" && ball.pit_number == null) {
             if (ball.type === basket.type) {
                 const ballPoints = ball.points ?? 100;
-                this.points += ball.been_in_wrong_basket
+                const awardedPoints = ball.been_in_wrong_basket
                     ? ballPoints / 2
                     : ballPoints;
 
+                this.points += awardedPoints;
+
                 this.scene.get("HudScene").update_points(this.points);
+                this.scene.get("HudScene").showPointsPopup(awardedPoints);
+
                 ball.destroyBall();
                 this.answer_stats.get(basket.type).correct += 1;
 
@@ -371,6 +398,7 @@ export class MainScene extends Scene {
                 if (this.game.sfxVolume > 0) {
                     this.sound.play("error", { volume: this.game.sfxVolume });
                 }
+                ball.been_in_wrong_basket = true;
                 ball.goToPit();
                 this.answer_stats.get(basket.type).incorrect += 1;
             }
@@ -406,7 +434,6 @@ export class MainScene extends Scene {
 
         return this.shuffle([...creditSamples, ...debitSamples]);
     }
-
 
     getRandomAllElements(total) {
         const typeNames = [
@@ -558,6 +585,15 @@ export class MainScene extends Scene {
                 basket_y,
                 belt_types[belt_label - 1]
             );
+            basket.body.setSize(basket.width * 0.9, basket.height * 0.7);
+            basket.body.setOffset(basket.width * 0.05, basket.height * 0.15);
+            // 🔧 Adjust basket positions to make room for long text
+            if (basket.type === "Expenses/Losses") {
+                basket.x += 10; // move left a bit
+            } else if (basket.type === "Revenues/Gains") {
+                basket.x -= 10; // move right a bit
+            }
+
             this.tooltip.attachTo(
                 basket,
                 DESCRIPTION_MAP.get(belt_types[belt_label - 1]),
@@ -638,8 +674,7 @@ export class MainScene extends Scene {
                 callback: () => {
                     if (this.game_over_timeout === 0) {
                         this.game.events.emit("exit-game");
-                        this.scene.start("GameOverScene", 
-                        {
+                        this.scene.start("GameOverScene", {
                             points: this.points,
                             gameKey: this.game_key,
                         });
