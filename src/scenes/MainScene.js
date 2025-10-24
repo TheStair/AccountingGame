@@ -240,13 +240,11 @@ export class MainScene extends Scene {
         );
         const game_type = data.type || "accounting";
         if (game_type === "debit_credit") {
-            this.elements = this.getRandomNBElements(NUM_BALLS);
             this.config.basket_types = [DEBIT, CREDIT];
             this.config.belt_types = [NONE, NONE, NONE, DEBIT, CREDIT];
             this.config.belt_labels = [4, 5];
             this.game_key = "game1";
         } else {
-            this.elements = this.getRandomAllElements(NUM_BALLS);
             this.config.basket_types = [
                 ASSETS,
                 LIABILITIES,
@@ -318,13 +316,26 @@ export class MainScene extends Scene {
         let elem;
 
         if (this.game_key === "game1") {
+            this.recentNames = this.recentNames ?? new Set();
+
             const type = Math.random() < 0.5 ? DEBIT : CREDIT;
             const arr =
                 type === DEBIT
                     ? this.normalBalance.map((row) => row[0]).filter(Boolean)
                     : this.normalBalance.map((row) => row[1]).filter(Boolean);
 
-            const name = arr[Math.floor(Math.random() * arr.length)];
+            let name;
+            let attempts = 0;
+            do {
+                name = arr[Math.floor(Math.random() * arr.length)];
+                attempts++;
+            } while (this.recentNames.has(name) && attempts < 10);
+
+            this.recentNames.add(name);
+            if (this.recentNames.size > 20) {
+                this.recentNames.clear(); // forget older ones occasionally
+            }
+
             elem = { name, type, points: assignPoints(name) };
         } else if (this.game_key === "game2") {
             const types = [
@@ -342,7 +353,20 @@ export class MainScene extends Scene {
                 .map((row) => row?.[colIndex])
                 .filter(Boolean);
 
-            const name = col[Math.floor(Math.random() * col.length)];
+            this.recentNames = this.recentNames ?? new Set();
+
+            let name;
+            let attempts = 0;
+            do {
+                name = col[Math.floor(Math.random() * col.length)];
+                attempts++;
+            } while (this.recentNames.has(name) && attempts < 10);
+
+            this.recentNames.add(name);
+            if (this.recentNames.size > 20) {
+                this.recentNames.clear();
+            }
+
             elem = { name, type, points: assignPoints(name) };
         }
 
