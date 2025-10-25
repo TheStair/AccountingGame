@@ -184,7 +184,7 @@ class SubmitResult(BaseModel):
 @app.post("/submit", response_model=SubmitResult, summary="Submit a score (Top-N only)")
 def submit_score(payload: SubmitPayload = Body(...)):
 
-    game = GAME_ALIASES.get(game.lower(), game.lower())
+    game = GAME_ALIASES.get(payload.game.lower(), payload.game.lower())
 
     if payload.game not in ALLOWED_GAMES:
         raise HTTPException(status_code=400, detail="Unknown game")
@@ -205,7 +205,7 @@ def submit_score(payload: SubmitPayload = Body(...)):
                 cutoff = row[0] if row else None
 
 
-                cur.execute(SQL_UPSERT, (payload.game, username, payload.score))
+                cur.execute(SQL_UPSERT, (game, username, payload.score))
                 row_id, stored_game, stored_score = cur.fetchone()
 
                 # 3) Prune beyond Top-N for this game
