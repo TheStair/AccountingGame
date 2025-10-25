@@ -186,7 +186,7 @@ def submit_score(payload: SubmitPayload = Body(...)):
 
     game = GAME_ALIASES.get(payload.game.lower(), payload.game.lower())
 
-    if payload.game not in ALLOWED_GAMES:
+    if game not in ALLOWED_GAMES:
         raise HTTPException(status_code=400, detail="Unknown game")
     if not USERNAME_RE.fullmatch(payload.username):
         raise HTTPException(status_code=400, detail="Username must be 3 letters A–Z")
@@ -200,7 +200,7 @@ def submit_score(payload: SubmitPayload = Body(...)):
         with conn:
             with conn.cursor() as cur:
                 # 1) Check Nth cutoff (None if board not full)
-                cur.execute(SQL_GET_CUTOFF, (payload.game, TOP_N))
+                cur.execute(SQL_GET_CUTOFF, (game, TOP_N))
                 row = cur.fetchone()
                 cutoff = row[0] if row else None
 
