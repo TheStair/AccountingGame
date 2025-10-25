@@ -18,27 +18,33 @@ export class HudScene extends Scene {
 
     create() {
         // --- Points text (left) ---
-        this.points_text = this.add.text(10, 10, "POINTS:000", {
-            fontSize: "32px",
-            fontFamily: '"Jersey 10", sans-serif',
-            color: "#7f1a02", // goldish frame color
-        }).setOrigin(0, 0);
-
-        // --- Time text (right-aligned) ---
-        this.remaining_time_text = this.add.text(
-            this.scale.width - 10,
-            10,
-            `TIME:${this.remaining_time.toString().padStart(2, "0")}s`,
-            {
+        this.points_text = this.add
+            .text(10, 10, "POINTS:000", {
                 fontSize: "32px",
                 fontFamily: '"Jersey 10", sans-serif',
                 color: "#7f1a02", // goldish frame color
-            }
-        ).setOrigin(1, 0);
+            })
+            .setOrigin(0, 0);
+
+        // --- Time text (right-aligned) ---
+        this.remaining_time_text = this.add
+            .text(
+                this.scale.width - 10,
+                10,
+                `TIME:${this.remaining_time.toString().padStart(2, "0")}s`,
+                {
+                    fontSize: "32px",
+                    fontFamily: '"Jersey 10", sans-serif',
+                    color: "#7f1a02", // goldish frame color
+                }
+            )
+            .setOrigin(1, 0);
     }
 
     update_points(points) {
-        this.points_text.setText(`POINTS:${points.toString().padStart(3, "0")}`);
+        this.points_text.setText(
+            `POINTS:${points.toString().padStart(3, "0")}`
+        );
     }
 
     update_timeout(timeout) {
@@ -46,4 +52,28 @@ export class HudScene extends Scene {
             `TIME:${timeout.toString().padStart(2, "0")}s`
         );
     }
+    showPointsPopup(points) {
+        const x = this.cameras.main.width / 2;
+        const y = this.cameras.main.height / 2;
+
+        const popup = this.add
+            .text(x, y, `+${points}`, {
+                fontSize: "48px",
+                fontFamily: '"Jersey 10", sans-serif',
+                color: "#FFD700", // gold
+                stroke: "#000000",
+                strokeThickness: 4,
+            })
+            .setOrigin(0.5, 0.5); // center origin
+
+        this.tweens.add({
+            targets: popup,
+            y: y - 50,
+            alpha: 0,
+            duration: 1000,
+            ease: "Cubic.easeOut",
+            onComplete: () => popup.destroy(),
+        });
+    }
 }
+

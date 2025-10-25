@@ -1,7 +1,6 @@
 import { GameObjects } from "phaser";
 
 export class Basket extends GameObjects.Container {
-
     constructor(scene, x, y, type) {
         super(scene, x, y);
         this.type = type;
@@ -12,33 +11,39 @@ export class Basket extends GameObjects.Container {
         this.basketImage.displayWidth = 90;
         this.basketImage.displayHeight = 90;
 
-        // create text label
         this.textLabel = new GameObjects.Text(scene, 0, 0, type, {
-            fontSize: "14px",
+            fontSize: "10px",
             fill: "#ffffff",
             backgroundColor: "rgba(0, 0, 0, 0.5)",
-            padding: { x: 4, y: 2 },
+            padding: { x: 2, y: 2 },
             align: "center",
             wordWrap: { width: 100, useAdvancedWrap: true },
         });
         this.textLabel.setOrigin(0.5, 0.5);
 
-
         this.add([this.basketImage, this.textLabel]);
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
 
-        this.body.setSize(this.basketImage.displayWidth, this.basketImage.displayHeight);
-        this.body.setOffset(-this.basketImage.displayWidth / 2, -this.basketImage.displayHeight / 2);
+        this.body.setSize(
+            this.basketImage.displayWidth,
+            this.basketImage.displayHeight
+        );
+        this.body.setOffset(
+            -this.basketImage.displayWidth / 2,
+            -this.basketImage.displayHeight / 2
+        );
         this.body.setImmovable(true);
 
-        this.setSize(this.basketImage.displayWidth, this.basketImage.displayHeight);
-
+        this.setSize(
+            this.basketImage.displayWidth,
+            this.basketImage.displayHeight
+        );
     }
-
 
     start() {
         this.setActive(true);
         this.setVisible(true);
     }
-};
+}
+
