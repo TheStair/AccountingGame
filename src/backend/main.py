@@ -23,7 +23,7 @@ TOP_N = 100
 GAME_ALIASES = {
     "game1": "game1",
     "game2": "game2",
-    "GM3-Level1": "game3-2",
+    "GM3-Level1": "game3-1",
     "GM3-Level2": "game3-2",
     "GM3-Level3": "game3-3"
 }
