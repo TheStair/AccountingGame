@@ -16,7 +16,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-ALLOWED_GAMES = {"game1", "game2", "game3-1", "game3-2", "game3-3", "GM3Level1", "GM3Level2", "GM3Level3"}
+ALLOWED_GAMES = {"game1", "game2", "game3-1", "game3-2", "game3-3", "GM3-Level1", "GM3-Level2", "GM3-Level3"}
 USERNAME_RE = re.compile(r"^[A-Za-z]{3}$")
 TOP_N = 100
  
@@ -83,11 +83,11 @@ def get_leaderboard(
 
     if pool is None:
         raise HTTPException(status_code=500, detail="DB not initialized")
-    if game == "GM3Level1":
+    if game == "GM3-Level1":
         game = "game3-1"
-    elif game == "GM3Level2":
+    elif game == "GM3-Level2":
         game = "game3-2"
-    elif game == "GM3Level3":
+    elif game == "GM3-Level3":
         game = "game3-3"
 
     conn = pool.getconn()
@@ -185,11 +185,11 @@ def submit_score(payload: SubmitPayload = Body(...)):
         raise HTTPException(status_code=400, detail="Username must be 3 letters A–Z")
     username = payload.username.upper()
 
-    if game == "GM3Level1":
+    if game == "GM3-Level1":
         game = "game3-1"
-    elif game == "GM3Level2":
+    elif game == "GM3-Level2":
         game = "game3-2"
-    elif game == "GM3Level3":
+    elif game == "GM3-Level3":
         game = "game3-3"
 
     if pool is None:
@@ -268,11 +268,11 @@ def preview_rank(game: str, score: int, n: int = TOP_N):
     if score < 0:
         raise HTTPException(status_code=400, detail="Score must be >= 0")
 
-    if game == "GM3Level1":
+    if game == "GM3-Level1":
         game = "game3-1"
-    elif game == "GM3Level2":
+    elif game == "GM3-Level2":
         game = "game3-2"
-    elif game == "GM3Level3":
+    elif game == "GM3-Level3":
         game = "game3-3"
 
     conn = pool.getconn()
