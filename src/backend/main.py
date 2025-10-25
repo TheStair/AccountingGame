@@ -16,9 +16,17 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-ALLOWED_GAMES = {"game1", "game2", "game3-1", "game3-2", "game3-3", "GM3-Level1", "GM3-Level2", "GM3-Level3"}
+ALLOWED_GAMES = {"game1", "game2", "game3-1", "game3-2", "game3-3"}
 USERNAME_RE = re.compile(r"^[A-Za-z]{3}$")
 TOP_N = 100
+
+GAME_ALIASES = {
+    "game1": "game1",
+    "game2": "game2",
+    "GM3-Level1": "game3-2",
+    "GM3-Level2": "game3-2",
+    "GM3-Level3": "game3-3"
+}
  
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -78,17 +86,13 @@ def get_leaderboard(
     game: str = Path(..., description="Game identifier (e.g., 'game1')"),
     limit: int = Query(TOP_N, ge=1, le=100, description="Number of rows to return (1–100)."),
 ):
+    game = GAME_ALIASES.get(game.lower(), game.lower())
+
     if game not in ALLOWED_GAMES:
         raise HTTPException(status_code=404, detail="Unknown game")
 
     if pool is None:
         raise HTTPException(status_code=500, detail="DB not initialized")
-    if game == "GM3-Level1":
-        game = "game3-1"
-    elif game == "GM3-Level2":
-        game = "game3-2"
-    elif game == "GM3-Level3":
-        game = "game3-3"
 
     conn = pool.getconn()
     try:
@@ -179,18 +183,14 @@ class SubmitResult(BaseModel):
 
 @app.post("/submit", response_model=SubmitResult, summary="Submit a score (Top-N only)")
 def submit_score(payload: SubmitPayload = Body(...)):
+
+    game = GAME_ALIASES.get(game.lower(), game.lower())
+
     if payload.game not in ALLOWED_GAMES:
         raise HTTPException(status_code=400, detail="Unknown game")
     if not USERNAME_RE.fullmatch(payload.username):
         raise HTTPException(status_code=400, detail="Username must be 3 letters A–Z")
     username = payload.username.upper()
-
-    if game == "GM3-Level1":
-        game = "game3-1"
-    elif game == "GM3-Level2":
-        game = "game3-2"
-    elif game == "GM3-Level3":
-        game = "game3-3"
 
     if pool is None:
         raise HTTPException(status_code=500, detail="DB not initialized")
@@ -261,6 +261,9 @@ class PreviewResponse(BaseModel):
 
 @app.get("/preview", response_model=PreviewResponse, summary="Preview rank for a score (no insert)")
 def preview_rank(game: str, score: int, n: int = TOP_N):
+
+    game = GAME_ALIASES.get(game.lower(), game.lower())
+
     if pool is None:
         raise HTTPException(status_code=500, detail="DB not initialized")
     if game not in ALLOWED_GAMES:
@@ -268,12 +271,6 @@ def preview_rank(game: str, score: int, n: int = TOP_N):
     if score < 0:
         raise HTTPException(status_code=400, detail="Score must be >= 0")
 
-    if game == "GM3-Level1":
-        game = "game3-1"
-    elif game == "GM3-Level2":
-        game = "game3-2"
-    elif game == "GM3-Level3":
-        game = "game3-3"
 
     conn = pool.getconn()
     try:
