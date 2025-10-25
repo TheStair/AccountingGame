@@ -54,7 +54,7 @@ export class GameOverScene extends Scene {
       const previewRes = await fetch(
         `${this.game.apiBaseUrl}/preview?game=${encodeURIComponent(
           this.gameKey
-        )}&points=${this.end_points}`
+        )}&score=${parseInt(this.end_points)}`
       );
       const result = await previewRes.json();
 
@@ -125,7 +125,7 @@ export class GameOverScene extends Scene {
 
     submitBtn.on("pointerdown", async () => {
       const username = input.node.value.toUpperCase().slice(0, 3) || "AAA";
-      const points = parseInt(this.end_points, 10);
+      const score = parseInt(this.end_points, 10);
 
       try {
         const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
@@ -134,7 +134,7 @@ export class GameOverScene extends Scene {
           body: JSON.stringify({
             game: this.gameKey, // keep same identifier used above
             username,
-            points,
+            score,
           }),
         });
 
