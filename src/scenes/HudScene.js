@@ -1,79 +1,89 @@
+// src/scenes/HudScene.js
 import { Scene } from "phaser";
 
 // The HUD scene is the scene that shows the points and the remaining time.
 export class HudScene extends Scene {
-    remaining_time = 0;
+  remaining_time = 0;
 
-    remaining_time_text;
-    points_text;
+  remaining_time_text;
+  points_text;
 
-    constructor() {
-        super("HudScene");
-    }
+  constructor() {
+    super("HudScene");
+  }
 
-    init(data) {
-        this.cameras.main.fadeIn(1000, 0, 0, 0);
-        this.remaining_time = data.remaining_time;
-    }
+  init(data) {
+    this.cameras.main.fadeIn(1000, 0, 0, 0);
+    this.remaining_time = data.remaining_time | 0;
+  }
 
-    create() {
-        // --- Points text (left) ---
-        this.points_text = this.add
-            .text(10, 10, "POINTS:000", {
-                fontSize: "32px",
-                fontFamily: '"Jersey 10", sans-serif',
-                color: "#7f1a02", // goldish frame color
-            })
-            .setOrigin(0, 0);
+  create() {
+    const { width, height } = this.scale;
 
-        // --- Time text (right-aligned) ---
-        this.remaining_time_text = this.add
-            .text(
-                this.scale.width - 10,
-                10,
-                `TIME:${this.remaining_time.toString().padStart(2, "0")}s`,
-                {
-                    fontSize: "32px",
-                    fontFamily: '"Jersey 10", sans-serif',
-                    color: "#7f1a02", // goldish frame color
-                }
-            )
-            .setOrigin(1, 0);
-    }
+    // Match Level 1/2 styling
+    const baseStyle = {
+      fontSize: "40px",
+      color: "#dcc89f",
+      fontFamily: '"Jersey 10", sans-serif',
+    };
+    const strokeColor = "#7f1a02";
+    const strokeThickness = 3;
 
-    update_points(points) {
-        this.points_text.setText(
-            `POINTS:${points.toString().padStart(3, "0")}`
-        );
-    }
+    // --- Points text (top-left) ---
+    this.points_text = this.add
+      .text(20, 3, "POINTS:000", baseStyle)
+      .setOrigin(0, 0)
+      .setStroke(strokeColor, strokeThickness)
+      .setDepth(999);
 
-    update_timeout(timeout) {
-        this.remaining_time_text.setText(
-            `TIME:${timeout.toString().padStart(2, "0")}s`
-        );
-    }
-    showPointsPopup(points) {
-        const x = this.cameras.main.width / 2;
-        const y = this.cameras.main.height / 2;
+    // --- Time text (top-right) ---
+    this.remaining_time_text = this.add
+      .text(width - 20, 3, `Time:${this.remaining_time}s`, baseStyle)
+      .setOrigin(1, 0)
+      .setStroke(strokeColor, strokeThickness)
+      .setDepth(999);
 
-        const popup = this.add
-            .text(x, y, `+${points}`, {
-                fontSize: "48px",
-                fontFamily: '"Jersey 10", sans-serif',
-                color: "#FFD700", // gold
-                stroke: "#000000",
-                strokeThickness: 4,
-            })
-            .setOrigin(0.5, 0.5); // center origin
+    // --- Floating score popup (center of the screen) ---
+    this.plusTextAnchor = { x: width / 2, y: height / 2 };
+    this.plusText = this.add
+      .text(this.plusTextAnchor.x, this.plusTextAnchor.y, "", {
+        fontSize: "48px",
+        color: "#dcc89f",
+        fontFamily: '"Jersey 10", sans-serif',
+      })
+      .setOrigin(0.5, 0.5)
+      .setStroke(strokeColor, strokeThickness)
+      .setDepth(1000)
+      .setAlpha(0);
+  }
 
-        this.tweens.add({
-            targets: popup,
-            y: y - 50,
-            alpha: 0,
-            duration: 1000,
-            ease: "Cubic.easeOut",
-            onComplete: () => popup.destroy(),
-        });
-    }
+  update_points(points) {
+    const v = String(Math.max(0, points | 0)).padStart(3, "0");
+    this.points_text?.setText(`POINTS:${v}`);
+  }
+
+  update_timeout(timeout) {
+    const t = timeout | 0;
+    this.remaining_time_text?.setText(`Time:${t}s`);
+  }
+
+  showPointsPopup(points) {
+    // Reuse single text object; pop and fade upward
+    const t = this.plusText;
+    if (!t) return;
+    t.setText(`+${points}`);
+    t.setPosition(this.plusTextAnchor.x, this.plusTextAnchor.y);
+    t.setAlpha(1).setScale(1);
+    this.tweens.killTweensOf(t);
+    this.tweens.add({
+      targets: t,
+      y: this.plusTextAnchor.y - 50,
+      alpha: 0,
+      scale: 1.15,
+      duration: 700,
+      ease: "Quad.easeOut",
+    });
+  }
 }
 
+export default HudScene;

@@ -10,6 +10,7 @@ export default class GM3Level2 extends BaseGM3Scene {
     this._uiNodes = [];
     this.selectors = [];
     this.selections = { Asset: "BLANK", Liability: "BLANK", SE: "BLANK", NI: "BLANK" };
+    this.score = 0; // show as POINTS:000
   }
 
   preload() {
@@ -28,7 +29,7 @@ export default class GM3Level2 extends BaseGM3Scene {
     const buf = this.cache.binary.get("gm3_medium_xlsx");
     if (!buf) return this._failAndBack("Excel file not found.");
 
-    // Parse 'A=L+SE - Medium'!G4:G23 (take up to 10) and C/D/E/F for answers
+    // Parse 'A=L+SE - Medium'
     try {
       const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellHTML: true });
       const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "a=l+se - medium".toLowerCase());
@@ -38,13 +39,8 @@ export default class GM3Level2 extends BaseGM3Scene {
       const normalizeSign = (cell) => {
         const raw = this._getCellText(cell);
         const t = (raw ?? "").toString().trim().toUpperCase();
-
-        // + signs or "plus/positive"
         if (/[+\uFF0B]/.test(t) || t.includes("PLUS") || t.includes("POSITIVE")) return "+";
-
-        // - signs or unicode/minus-like
         if (/[-\u2212\u2012\u2013\u2014\u2015]/.test(t) || t.includes("MINUS") || t.includes("NEGATIVE")) return "-";
-
         return "BLANK";
       };
 
@@ -54,7 +50,6 @@ export default class GM3Level2 extends BaseGM3Scene {
         const q = this._getCellText(qCell);
         if (!q) continue;
 
-        // Correct values from columns C (Asset), D (Liability), E (SE), F (NI)
         const asset = normalizeSign(sh[`C${r}`]);
         const liab  = normalizeSign(sh[`D${r}`]);
         const se    = normalizeSign(sh[`E${r}`]);
@@ -82,14 +77,35 @@ export default class GM3Level2 extends BaseGM3Scene {
     this.add.image(width / 2, height / 2, "gm3_level1_bg")
       .setOrigin(0.5).setDisplaySize(width, height).setDepth(0);
 
-    // --- HUD (match GM3Level1) ---
-    // SCORE (center top)
-    if (this.scoreText)
-      this.scoreText.setFontFamily('"Jersey 10", sans-serif')
-        .setColor("#dcc89f").setFontSize(42).setStroke("#7f1a02", 3)
-        .setDepth(6).setPosition(width / 2, height * 0.04).setOrigin(0.5);
+    // --- HUD: SCORE top-left, TIMER top-right ---
+    if (!this.scoreText) {
+      this.scoreText = this.add.text(20, 16, "", {
+        fontSize: "40px",
+        color: "#dcc89f",
+        fontFamily: '"Jersey 10", sans-serif',
+      }).setDepth(6).setOrigin(0, 0).setStroke("#7f1a02", 3);
+    } else {
+      this.scoreText.setPosition(20, 3).setOrigin(0, 0)
+        .setFontFamily('"Jersey 10", sans-serif').setFontSize(40)
+        .setColor("#dcc89f").setStroke("#7f1a02", 3).setDepth(6);
+    }
+    this._updateScoreUI();
 
-    // QUESTION (compact)
+    if (!this.timerText) {
+      this.timerText = this.add.text(width - 20, 16, "", {
+        fontSize: "40px",
+        color: "#dcc89f",
+        fontFamily: '"Jersey 10", sans-serif',
+      }).setDepth(6).setOrigin(1, 0).setStroke("#7f1a02", 3);
+    } else {
+      this.timerText.setPosition(width - 20, 3).setOrigin(1, 0)
+        .setFontFamily('"Jersey 10", sans-serif').setFontSize(40)
+        .setColor("#dcc89f").setStroke("#7f1a02", 3).setDepth(6);
+    }
+    if (typeof this.timeLeft !== "number") this.timeLeft = 90;
+    this._updateTimerUI();
+
+    // QUESTION
     const qWrapW = Math.min(560, Math.floor(width * 0.6));
     this.qText = this.add.text(width / 2, height * 0.26, "", {
       fontSize: "30px",
@@ -99,14 +115,13 @@ export default class GM3Level2 extends BaseGM3Scene {
       align: "center",
     }).setOrigin(0.5).setDepth(6);
 
-    // TIMER (numeric only)
-    if (this.timerText) {
-      this.timerText.setFontFamily('"Jersey 10", sans-serif')
-        .setColor("#dcc89f").setFontSize(40).setStroke("#7f1a02", 3)
-        .setDepth(6).setPosition(width / 2, height * 0.51).setOrigin(0.5);
-      if (typeof this.timeLeft !== "number") this.timeLeft = 90;
-      this.timerText.setText(String(this.timeLeft));
-    }
+    // --- Floating +200 at the OLD timer position (center under the question) ---
+    this.plusTextAnchor = { x: width / 2, y: height * 0.51 };
+    this.plusText = this.add.text(this.plusTextAnchor.x, this.plusTextAnchor.y, "+200", {
+      fontSize: "48px",
+      color: "#dcc89f",
+      fontFamily: '"Jersey 10", sans-serif',
+    }).setOrigin(0.5).setDepth(15).setStroke("#7f1a02", 3).setAlpha(0);
 
     // ---- Colors ----
     const brown = 0x7f1a02;
@@ -114,14 +129,13 @@ export default class GM3Level2 extends BaseGM3Scene {
 
     // ---- Independent Y controls ----
     const leftX = width * 0.08;
-
-    // Independent Y for the equation line
     const EQ_Y = height * 0.57;
 
-    // Independent Y for the selectors (answer boxes + arrows)
-    const selY = Math.max((this.timerText?.y ?? height * 0.51) + 120, height * 0.70);
+    // Selector Y: decoupled from timerText (stays reasonably low on screen)
+    const selY = Math.max(EQ_Y + 90, height * 0.72); // increase 110 if they still touch
 
-    // Labels: beige text with brown outline
+
+    // Labels
     const labelStyle = {
       fontFamily: '"Jersey 10", sans-serif',
       fontSize: "42px",
@@ -137,7 +151,6 @@ export default class GM3Level2 extends BaseGM3Scene {
       strokeThickness: 3,
     };
 
-    // "Asset = Liability + Stockholders Equity | Net Income"
     const lblAsset = this.add.text(leftX, EQ_Y, "Asset", labelStyle).setOrigin(0, 0.5).setDepth(6);
     const eq      = this.add.text(lblAsset.x + lblAsset.width + 20, EQ_Y, "=", symbolStyle).setOrigin(0, 0.5).setDepth(6);
     const lblLiab = this.add.text(eq.x + 26, EQ_Y, "Liability", labelStyle).setOrigin(0, 0.5).setDepth(6);
@@ -147,15 +160,13 @@ export default class GM3Level2 extends BaseGM3Scene {
     const lblNI   = this.add.text(pipe.x + 22, EQ_Y, "Net Income", labelStyle).setOrigin(0, 0.5).setDepth(6);
 
     // ---- Selector geometry ----
-    const boxW = 120, boxH = 52; // compact fields
+    const boxW = 120, boxH = 52;
 
-    // Horizontal centers under each label
     const assetCenter = lblAsset.x + lblAsset.width / 2;
     const liabCenter  = lblLiab.x + lblLiab.width / 2;
     const seCenter    = lblSE.x + lblSE.width / 2;
     const niCenter    = lblNI.x + lblNI.width / 2;
 
-    // Arrow size and slight vertical offset
     const arrowBase = 42;
     const arrowHeight = 28;
     const ARROW_V_OFFSET = 14;
@@ -163,23 +174,20 @@ export default class GM3Level2 extends BaseGM3Scene {
     const makeArrowPolygon = (base, heightPx, direction) => {
       const half = base / 2;
       return direction === "up"
-        ? [-half, 0, half, 0, 0, -heightPx]  // ▲
-        : [-half, 0, half, 0, 0,  heightPx]; // ▼
+        ? [-half, 0, half, 0, 0, -heightPx]
+        : [-half, 0, half, 0, 0,  heightPx];
     };
 
     const cycleValues = ["BLANK", "+", "-"];
 
-    // Build a selector (container keeps arrows and box aligned)
     const makeSelector = (centerX, key) => {
       const container = this.add.container(centerX, selY).setDepth(6);
 
-      // Box
       const rect = this.add.rectangle(0, 0, boxW, boxH, beige, 1)
         .setStrokeStyle(3, brown)
         .setInteractive({ useHandCursor: true });
       container.add(rect);
 
-      // Value text
       const valueText = this.add.text(0, 0, this.selections[key], {
         fontFamily: '"Jersey 10", sans-serif',
         fontSize: "30px",
@@ -188,35 +196,25 @@ export default class GM3Level2 extends BaseGM3Scene {
       }).setOrigin(0.5).setDepth(7);
       container.add(valueText);
 
-      // ▲ Up
       const upPoly = this.add
         .polygon(20, -boxH / 2 - 5 + ARROW_V_OFFSET, makeArrowPolygon(arrowBase, arrowHeight, "up"), beige)
         .setStrokeStyle(3, brown)
         .setDepth(7)
-        .setInteractive(
-          new Phaser.Geom.Polygon(makeArrowPolygon(arrowBase, arrowHeight, "up")),
-          Phaser.Geom.Polygon.Contains
-        );
+        .setInteractive(new Phaser.Geom.Polygon(makeArrowPolygon(arrowBase, arrowHeight, "up")), Phaser.Geom.Polygon.Contains);
       container.add(upPoly);
 
-      // ▼ Down
       const downPoly = this.add
         .polygon(20, boxH / 2 + 5 + ARROW_V_OFFSET, makeArrowPolygon(arrowBase, arrowHeight, "down"), beige)
         .setStrokeStyle(3, brown)
         .setDepth(7)
-        .setInteractive(
-          new Phaser.Geom.Polygon(makeArrowPolygon(arrowBase, arrowHeight, "down")),
-          Phaser.Geom.Polygon.Contains
-        );
+        .setInteractive(new Phaser.Geom.Polygon(makeArrowPolygon(arrowBase, arrowHeight, "down")), Phaser.Geom.Polygon.Contains);
       container.add(downPoly);
 
-      // Hover highlights
       upPoly.on("pointerover", () => upPoly.setFillStyle(0xefdcbc, 1));
       upPoly.on("pointerout",  () => upPoly.setFillStyle(beige, 1));
       downPoly.on("pointerover", () => downPoly.setFillStyle(0xefdcbc, 1));
       downPoly.on("pointerout",  () => downPoly.setFillStyle(beige, 1));
 
-      // Cycling
       const cycleForward = () => {
         const cur = this.selections[key];
         const idx = cycleValues.indexOf(cur);
@@ -285,13 +283,12 @@ export default class GM3Level2 extends BaseGM3Scene {
     this.currentIndex = 0;
     this._showCurrent(false);
 
-    // 🔔 Show pre-start beige card FIRST (then do countdown & start timer)
+    // Pre-start card then countdown
     this._showPreStartCard();
   }
 
   _showCurrent(show = true) {
     if (this.currentIndex >= this.questions.length) return this._finishToGameOver("completed");
-
     const item = this.questions[this.currentIndex];
     const q = typeof item === "string" ? item : (item?.question ?? "");
     this.qText.setText(q);
@@ -316,11 +313,12 @@ export default class GM3Level2 extends BaseGM3Scene {
       sel.SE === cor.SE &&
       sel.NI === cor.NI;
 
-    // Try to find the submit button by geometry (same as we created)
     const nextBtn = this._uiNodes.find(n => n && n.type === "Rectangle" && n.width === 180 && n.height === 50);
 
     if (allMatch) {
       this.onScored(200);
+      this._updateScoreUI();     // refresh POINTS:###
+      this._showPlusAmount(200); // floating +200
       this._flashScreen(0x2e7d32, 0.35); // green flash
       if (nextBtn) nextBtn.setFillStyle(0x2e7d32);
     } else {
@@ -328,12 +326,10 @@ export default class GM3Level2 extends BaseGM3Scene {
       if (nextBtn) nextBtn.setFillStyle(0x8b0000);
     }
 
-    // Tween the button color back to beige after flash
     if (nextBtn) {
       this.time.delayedCall(350, () => nextBtn.setFillStyle(0xdcc89f));
     }
 
-    // Advance after delay
     this.input.enabled = false;
     this.time.delayedCall(650, () => {
       this.currentIndex++;
@@ -342,25 +338,22 @@ export default class GM3Level2 extends BaseGM3Scene {
     });
   }
 
-  // --- New: Pre-start beige card shown BEFORE countdown/timer ---
+  // --- Pre-start beige card ---
   _showPreStartCard() {
-    // Disable input and hide gameplay UI while the card shows
     this.input.enabled = false;
     if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
     this._uiNodes?.forEach(n => n && n.setVisible(false));
 
     const { width, height } = this.scale;
 
-    // Container for animation + cleanup
     const card = this.add.container(width / 2, height / 2).setDepth(20).setScale(0.9).setAlpha(0);
 
-    // Beige panel with brown border
     const panelW = Math.min(800, Math.floor(width * 0.88));
     const panelH = 220;
 
     const g = this.add.graphics();
-    const BEIGE = 0xF5DEB3; // beige fill (close to theme)
-    const BROWN = 0x7f1a02; // theme brown
+    const BEIGE = 0xF5DEB3;
+    const BROWN = 0x7f1a02;
 
     g.lineStyle(6, BROWN, 1);
     g.fillStyle(BEIGE, 1);
@@ -380,16 +373,8 @@ export default class GM3Level2 extends BaseGM3Scene {
 
     card.add([g, title]);
 
-    // Fade/scale in
-    this.tweens.add({
-      targets: card,
-      alpha: 1,
-      scale: 1,
-      duration: 260,
-      ease: "Quad.easeOut",
-    });
+    this.tweens.add({ targets: card, alpha: 1, scale: 1, duration: 260, ease: "Quad.easeOut" });
 
-    // Hold, then fade out and start countdown
     this.time.delayedCall(3000, () => {
       this.tweens.add({
         targets: card,
@@ -436,18 +421,20 @@ export default class GM3Level2 extends BaseGM3Scene {
       txt.destroy();
       this._setGameplayUIVisible(true, true);
 
-      // Numeric countdown only
+      // Timer tick
       this.timerEvent = this.time.addEvent({
         delay: 1000,
         loop: true,
         callback: () => {
           this.timeLeft--;
-          if (this.timerText) this.timerText.setText(this.timeLeft + "s");
+          this._updateTimerUI();
           if (this.timeLeft <= 0) this.onTimeUp();
         },
       });
 
-      if (this.timerText) this.timerText.setText(String(this.timeLeft));
+      this._updateTimerUI();
+      this._updateScoreUI();
+
       this.input.enabled = true;
     });
   }
@@ -457,6 +444,33 @@ export default class GM3Level2 extends BaseGM3Scene {
     if (!fade) return this._uiNodes.forEach(n => n && n.setVisible(visible));
     if (visible) this._uiNodes.forEach(n => n && (n.setVisible(true), n.setAlpha(0),
       this.tweens.add({ targets: n, alpha: 1, duration: 350 })));
+  }
+
+  // --- UI helpers (same style as Level 1) ---
+  _formatScore(n) {
+    return String(Math.max(0, n | 0)).padStart(3, "0");
+  }
+  _updateScoreUI() {
+    if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`);
+  }
+  _updateTimerUI() {
+    if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`);
+  }
+  _showPlusAmount(amount = 200) {
+    const t = this.plusText;
+    if (!t) return;
+    t.setText(`+${amount}`);
+    t.setPosition(this.plusTextAnchor.x, this.plusTextAnchor.y);
+    t.setAlpha(1).setScale(1);
+    this.tweens.killTweensOf(t);
+    this.tweens.add({
+      targets: t,
+      y: this.plusTextAnchor.y - 30,
+      alpha: 0,
+      scale: 1.15,
+      duration: 650,
+      ease: "Quad.easeOut",
+    });
   }
 
   _failAndBack(msg) {
