@@ -56,7 +56,7 @@ export class MainMenuScene extends Scene {
 
     const get_option_text = (option) => {
       if (option === "debit_credit") return "Debit vs Credit";
-      if (option === "accounting") return "The Five Building Blocks";
+      if (option === "accounting") return "The Five Elements";
       if (option === "gamemode3") return "Accounting Equation";
       return option;
     };
