@@ -73,7 +73,7 @@ export default class GM3Level1 extends BaseGM3Scene {
       this.timerText.setFontFamily('"Jersey 10", sans-serif')
         .setColor("#dcc89f").setFontSize(40).setStroke("#7f1a02", 3)
         .setDepth(6).setPosition(width / 2, height * 0.51).setOrigin(0.50);
-      // 🔑 Force numeric text immediately so no "Time: ..." flash
+      // Ensure numeric text immediately
       if (typeof this.timeLeft !== "number") this.timeLeft = 90; // fallback to scene timeLimit
       this.timerText.setText(String(this.timeLeft));
     }
@@ -126,7 +126,9 @@ export default class GM3Level1 extends BaseGM3Scene {
 
     this.currentIndex = 0;
     this._showCurrent(false);
-    this._startCountdown();
+
+    // Pre-start beige card FIRST (then countdown & start timer)
+    this._showPreStartCard();
   }
 
   _showCurrent(show = true) {
@@ -159,6 +161,66 @@ export default class GM3Level1 extends BaseGM3Scene {
     });
   }
 
+  // --- New: Pre-start beige card shown BEFORE countdown/timer ---
+  _showPreStartCard() {
+    // Disable input and hide gameplay UI while the card shows
+    this.input.enabled = false;
+    if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
+    this._uiNodes?.forEach(n => n && n.setVisible(false));
+
+    const { width, height } = this.scale;
+
+    // Container for easy cleanup + animation
+    const card = this.add.container(width / 2, height / 2).setDepth(20).setScale(0.9).setAlpha(0);
+
+    // Beige panel with brown border
+    const panelW = Math.min(720, Math.floor(width * 0.86));
+    const panelH = 180;
+
+    const g = this.add.graphics();
+    const BEIGE = 0xF5DEB3; // beige fill
+    const BROWN = 0x7f1a02; // brown border (theme)
+
+    g.lineStyle(6, BROWN, 1);
+    g.fillStyle(BEIGE, 1);
+
+    const radius = 18;
+    g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
+    g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
+
+    const title = this.add.text(0, 0, "Solve the accounting equation", {
+      fontSize: "44px",
+      color: "#7f1a02",
+      fontFamily: '"Jersey 10", sans-serif',
+      align: "center",
+      wordWrap: { width: panelW - 40, useAdvanced: true },
+    }).setOrigin(0.5);
+
+    card.add([g, title]);
+
+    // Subtle scale/alpha in
+    this.tweens.add({
+      targets: card,
+      alpha: 1,
+      scale: 1,
+      duration: 260,
+      ease: "Quad.easeOut",
+    });
+
+    // Hold briefly, then fade out and start the countdown
+    this.time.delayedCall(1200, () => {
+      this.tweens.add({
+        targets: card,
+        alpha: 0,
+        duration: 220,
+        onComplete: () => {
+          card.destroy();
+          this._startCountdown();
+        },
+      });
+    });
+  }
+
   _startCountdown() {
     this.input.enabled = false;
     if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
@@ -179,7 +241,7 @@ export default class GM3Level1 extends BaseGM3Scene {
       txt.destroy();
       this._setGameplayUIVisible(true, true);
 
-      // Tick exactly the number (no label)
+      // Start the numeric timer (no "Time:" label)
       this.timerEvent = this.time.addEvent({
         delay: 1000,
         loop: true,
@@ -190,7 +252,7 @@ export default class GM3Level1 extends BaseGM3Scene {
         },
       });
 
-      // Make sure the first visible value is numeric too
+      // Ensure the first visible value is numeric too
       if (this.timerText) this.timerText.setText(String(this.timeLeft));
 
       this.input.enabled = true;

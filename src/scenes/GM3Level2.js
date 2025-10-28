@@ -36,19 +36,17 @@ export default class GM3Level2 extends BaseGM3Scene {
       const sh = wb.Sheets[sheetName];
 
       const normalizeSign = (cell) => {
-  // Get a clean uppercase string
-  const raw = this._getCellText(cell);
-  const t = (raw ?? "").toString().trim().toUpperCase();
+        const raw = this._getCellText(cell);
+        const t = (raw ?? "").toString().trim().toUpperCase();
 
-  // Any plus-like char: +, full-width ＋, or words
-  if (/[+\uFF0B]/.test(t) || t.includes("PLUS") || t.includes("POSITIVE")) return "+";
+        // + signs or "plus/positive"
+        if (/[+\uFF0B]/.test(t) || t.includes("PLUS") || t.includes("POSITIVE")) return "+";
 
-  // Any minus-like char: -, Unicode minus − (U+2212), en/em dashes – —, figure dash ‒
-  if (/[-\u2212\u2012\u2013\u2014\u2015]/.test(t) || t.includes("MINUS") || t.includes("NEGATIVE")) return "-";
+        // - signs or unicode/minus-like
+        if (/[-\u2212\u2012\u2013\u2014\u2015]/.test(t) || t.includes("MINUS") || t.includes("NEGATIVE")) return "-";
 
-  // Everything else counts as blank
-  return "BLANK";
-};
+        return "BLANK";
+      };
 
       const rows = [];
       for (let r = 4; r <= 23; r++) {
@@ -117,7 +115,7 @@ export default class GM3Level2 extends BaseGM3Scene {
     // ---- Independent Y controls ----
     const leftX = width * 0.08;
 
-    // Independent Y for the equation line (raise by decreasing the multiplier)
+    // Independent Y for the equation line
     const EQ_Y = height * 0.57;
 
     // Independent Y for the selectors (answer boxes + arrows)
@@ -151,18 +149,17 @@ export default class GM3Level2 extends BaseGM3Scene {
     // ---- Selector geometry ----
     const boxW = 120, boxH = 52; // compact fields
 
-    // Horizontal centers under each label (using their measured widths)
+    // Horizontal centers under each label
     const assetCenter = lblAsset.x + lblAsset.width / 2;
     const liabCenter  = lblLiab.x + lblLiab.width / 2;
     const seCenter    = lblSE.x + lblSE.width / 2;
     const niCenter    = lblNI.x + lblNI.width / 2;
 
-    // Arrow size and slight vertical offset (to lower them a bit)
-    const arrowBase = 42;       // triangle width
-    const arrowHeight = 28;     // triangle height
-    const ARROW_V_OFFSET = 14;   // increase to lower the arrows more
+    // Arrow size and slight vertical offset
+    const arrowBase = 42;
+    const arrowHeight = 28;
+    const ARROW_V_OFFSET = 14;
 
-    // Polygon points (base along local y=0)
     const makeArrowPolygon = (base, heightPx, direction) => {
       const half = base / 2;
       return direction === "up"
@@ -172,7 +169,7 @@ export default class GM3Level2 extends BaseGM3Scene {
 
     const cycleValues = ["BLANK", "+", "-"];
 
-    // Build a selector (container keeps arrows and box perfectly aligned)
+    // Build a selector (container keeps arrows and box aligned)
     const makeSelector = (centerX, key) => {
       const container = this.add.container(centerX, selY).setDepth(6);
 
@@ -191,7 +188,7 @@ export default class GM3Level2 extends BaseGM3Scene {
       }).setOrigin(0.5).setDepth(7);
       container.add(valueText);
 
-      // ▲ Up: base glued to top edge (lowered by ARROW_V_OFFSET)
+      // ▲ Up
       const upPoly = this.add
         .polygon(20, -boxH / 2 - 5 + ARROW_V_OFFSET, makeArrowPolygon(arrowBase, arrowHeight, "up"), beige)
         .setStrokeStyle(3, brown)
@@ -202,7 +199,7 @@ export default class GM3Level2 extends BaseGM3Scene {
         );
       container.add(upPoly);
 
-      // ▼ Down: base glued to bottom edge (lowered by ARROW_V_OFFSET)
+      // ▼ Down
       const downPoly = this.add
         .polygon(20, boxH / 2 + 5 + ARROW_V_OFFSET, makeArrowPolygon(arrowBase, arrowHeight, "down"), beige)
         .setStrokeStyle(3, brown)
@@ -254,9 +251,8 @@ export default class GM3Level2 extends BaseGM3Scene {
       makeSelector(niCenter,    "NI"),
     ];
 
-    // Next button (above selectors in depth so clicks are never stolen)
+    // Submit button
     const nextY = selY + 100;
-    const nextW = 220, nextH = 64;
     const nextBtn = this.add.rectangle(width / 2, nextY, 180, 50, beige)
       .setStrokeStyle(4, brown)
       .setOrigin(0.5)
@@ -272,7 +268,6 @@ export default class GM3Level2 extends BaseGM3Scene {
     nextBtn
       .on("pointerover", () => nextBtn.setFillStyle(0xefdcbc))
       .on("pointerout",  () => nextBtn.setFillStyle(beige))
-      // On submit, check correctness, flash, and advance
       .on("pointerdown", () => this._onSubmit());
 
     // Hide gameplay UI until countdown ends
@@ -281,7 +276,7 @@ export default class GM3Level2 extends BaseGM3Scene {
       this.timerText,
       this.scoreText,
       lblAsset, eq, lblLiab, plus, lblSE, pipe, lblNI,
-      ...this.selectors.flatMap(s => [s.container]),
+      ...this.selectors.map(s => s.container),
       nextBtn, nextTxt,
     ];
     this._setGameplayUIVisible(false);
@@ -289,7 +284,9 @@ export default class GM3Level2 extends BaseGM3Scene {
     // Kickoff
     this.currentIndex = 0;
     this._showCurrent(false);
-    this._startCountdown();
+
+    // 🔔 Show pre-start beige card FIRST (then do countdown & start timer)
+    this._showPreStartCard();
   }
 
   _showCurrent(show = true) {
@@ -306,45 +303,105 @@ export default class GM3Level2 extends BaseGM3Scene {
     if (show) this._setGameplayUIVisible(true);
   }
 
-_onSubmit() {
-  const item = this.questions[this.currentIndex];
-  if (!item) return;
+  _onSubmit() {
+    const item = this.questions[this.currentIndex];
+    if (!item) return;
 
-  const sel = this.selections;
-  const cor = item.correct ?? { Asset: "", Liability: "", SE: "", NI: "" };
+    const sel = this.selections;
+    const cor = item.correct ?? { Asset: "", Liability: "", SE: "", NI: "" };
 
-  const allMatch =
-    sel.Asset === cor.Asset &&
-    sel.Liability === cor.Liability &&
-    sel.SE === cor.SE &&
-    sel.NI === cor.NI;
+    const allMatch =
+      sel.Asset === cor.Asset &&
+      sel.Liability === cor.Liability &&
+      sel.SE === cor.SE &&
+      sel.NI === cor.NI;
 
-  // Find the Submit button and text (by depth)
-  const nextBtn = this._uiNodes.find(n => n && n.type === "Rectangle" && n.width === 180 && n.height === 50);
-  const nextTxt = this._uiNodes.find(n => n && n.text === "Submit");
+    // Try to find the submit button by geometry (same as we created)
+    const nextBtn = this._uiNodes.find(n => n && n.type === "Rectangle" && n.width === 180 && n.height === 50);
 
-  if (allMatch) {
-    this.onScored(100);
-    this._flashScreen(0x2e7d32, 0.35); // green flash
-    if (nextBtn) nextBtn.setFillStyle(0x2e7d32); // green button
-  } else {
-    this._flashScreen(0x8b0000, 0.35); // red flash
-    if (nextBtn) nextBtn.setFillStyle(0x8b0000); // red button
+    if (allMatch) {
+      this.onScored(200);
+      this._flashScreen(0x2e7d32, 0.35); // green flash
+      if (nextBtn) nextBtn.setFillStyle(0x2e7d32);
+    } else {
+      this._flashScreen(0x8b0000, 0.35); // red flash
+      if (nextBtn) nextBtn.setFillStyle(0x8b0000);
+    }
+
+    // Tween the button color back to beige after flash
+    if (nextBtn) {
+      this.time.delayedCall(350, () => nextBtn.setFillStyle(0xdcc89f));
+    }
+
+    // Advance after delay
+    this.input.enabled = false;
+    this.time.delayedCall(650, () => {
+      this.currentIndex++;
+      this._showCurrent(true);
+      this.input.enabled = true;
+    });
   }
 
-  // Tween the button color back to beige after flash
-  if (nextBtn) {
-    this.time.delayedCall(350, () => nextBtn.setFillStyle(0xdcc89f));
-  }
+  // --- New: Pre-start beige card shown BEFORE countdown/timer ---
+  _showPreStartCard() {
+    // Disable input and hide gameplay UI while the card shows
+    this.input.enabled = false;
+    if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
+    this._uiNodes?.forEach(n => n && n.setVisible(false));
 
-  // Advance after delay
-  this.input.enabled = false;
-  this.time.delayedCall(650, () => {
-    this.currentIndex++;
-    this._showCurrent(true);
-    this.input.enabled = true;
-  });
-}
+    const { width, height } = this.scale;
+
+    // Container for animation + cleanup
+    const card = this.add.container(width / 2, height / 2).setDepth(20).setScale(0.9).setAlpha(0);
+
+    // Beige panel with brown border
+    const panelW = Math.min(800, Math.floor(width * 0.88));
+    const panelH = 220;
+
+    const g = this.add.graphics();
+    const BEIGE = 0xF5DEB3; // beige fill (close to theme)
+    const BROWN = 0x7f1a02; // theme brown
+
+    g.lineStyle(6, BROWN, 1);
+    g.fillStyle(BEIGE, 1);
+
+    const radius = 18;
+    g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
+    g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
+
+    const message = "What is the effect on the financial statement elements?  Click on up and down arrows or element boxes to indicate change";
+    const title = this.add.text(0, 0, message, {
+      fontSize: "34px",
+      color: "#7f1a02",
+      fontFamily: '"Jersey 10", sans-serif',
+      align: "center",
+      wordWrap: { width: panelW - 48, useAdvanced: true },
+    }).setOrigin(0.5);
+
+    card.add([g, title]);
+
+    // Fade/scale in
+    this.tweens.add({
+      targets: card,
+      alpha: 1,
+      scale: 1,
+      duration: 260,
+      ease: "Quad.easeOut",
+    });
+
+    // Hold, then fade out and start countdown
+    this.time.delayedCall(3000, () => {
+      this.tweens.add({
+        targets: card,
+        alpha: 0,
+        duration: 220,
+        onComplete: () => {
+          card.destroy();
+          this._startCountdown();
+        },
+      });
+    });
+  }
 
   _flashScreen(colorHex, maxAlpha = 0.35) {
     const { width, height } = this.scale;
@@ -357,11 +414,6 @@ _onSubmit() {
       ease: "Quad.easeOut",
       onComplete: () => overlay.destroy(),
     });
-  }
-
-  _advanceQuestion() {
-    this.currentIndex++;
-    this._showCurrent(true);
   }
 
   _startCountdown() {
@@ -390,7 +442,7 @@ _onSubmit() {
         loop: true,
         callback: () => {
           this.timeLeft--;
-          if (this.timerText) this.timerText.setText(String(this.timeLeft));
+          if (this.timerText) this.timerText.setText(this.timeLeft + "s");
           if (this.timeLeft <= 0) this.onTimeUp();
         },
       });
