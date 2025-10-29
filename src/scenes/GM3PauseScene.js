@@ -57,5 +57,9 @@ export default class GM3PauseScene extends Phaser.Scene {
     this.scene.stop();
     if (this.returnTo) this.scene.stop(this.returnTo);
     this.scene.start("MainMenuScene");
+    this.sound.stopAll();             // kill everything
+this.scene.stop(this.parentScene);
+this.scene.start("MainMenuScene");
   }
+  
 }

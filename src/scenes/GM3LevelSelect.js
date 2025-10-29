@@ -9,7 +9,28 @@ export default class GM3LevelSelect extends Phaser.Scene {
   create(data) {
     const { width, height } = this.scale;
 
-    // Background (same as main menu)
+    // --- Keep existing menu music alive ---
+    const mm = this.game?.musicManager;
+    if (mm) {
+      // Apply the current saved volume to global manager FIRST
+      const vol = this.game.sfxVolume ?? mm.default_config?.volume ?? 1;
+      this.sound.volume = vol;
+
+      // If music from MainMenu is already playing, do nothing (no restart)
+      // Otherwise (e.g., entering here directly), start it.
+      if (!mm.isPlaying()) {
+        // Replace 'menu_bgm' with whatever key you used in MainMenuScene
+        mm.play(this, "menu_bgm"); 
+      }
+
+      // Stay in sync with future slider changes
+      const onVol = (v) => { mm.setVolume(v); this.sound.volume = v; };
+      this.game.events.on("volume-changed", onVol);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off("volume-changed", onVol));
+      this.events.once(Phaser.Scenes.Events.DESTROY,  () => this.game.events.off("volume-changed", onVol));
+    }
+
+    // --- Background (same as main menu) ---
     this.add.image(width / 2, height / 2, "home_bg")
       .setOrigin(0.5)
       .setDisplaySize(width, height)
@@ -32,53 +53,36 @@ export default class GM3LevelSelect extends Phaser.Scene {
     const backRect = this.add.rectangle(0, 0, w, h, 0x7f1a02);
     backRect.setStrokeStyle(2, 0xdcc89f);
 
-    // Thicker arrow (bolder stroke)
-const backArrow = this.add.text(0, 0, "←", {
-  fontSize: "32px",
-  fontFamily: '"Jersey 10", sans-serif',
-  color: "#dcc89f",
-  align: "center",
-  stroke: "#dcc89f",
-  strokeThickness: 2,
-}).setOrigin(0.5);
+    const backArrow = this.add.text(0, 0, "←", {
+      fontSize: "32px",
+      fontFamily: '"Jersey 10", sans-serif',
+      color: "#dcc89f",
+      align: "center",
+      stroke: "#dcc89f",
+      strokeThickness: 2,
+    }).setOrigin(0.5);
 
-backContainer.add([backBorder, backRect, backArrow]);
-
-// 🔧 Center the arrow precisely inside the rectangle
-Phaser.Display.Align.In.Center(backArrow, backRect);
-backArrow.y -= 3;
-
+    backContainer.add([backBorder, backRect, backArrow]);
+    Phaser.Display.Align.In.Center(backArrow, backRect);
+    backArrow.y -= 3;
 
     backRect.setInteractive({ useHandCursor: true });
-
-    // Hover: highlight color + enlarge container slightly
     backRect.on("pointerover", () => {
       backRect.setFillStyle(0xa8321a);
       this.tweens.killTweensOf(backContainer);
-      this.tweens.add({
-        targets: backContainer,
-        scale: 1.1,        // slightly larger
-        duration: 150,
-        ease: "Sine.easeOut",
-      });
+      this.tweens.add({ targets: backContainer, scale: 1.1, duration: 150, ease: "Sine.easeOut" });
     });
-
     backRect.on("pointerout", () => {
       backRect.setFillStyle(0x7f1a02);
       this.tweens.killTweensOf(backContainer);
-      this.tweens.add({
-        targets: backContainer,
-        scale: 1,
-        duration: 150,
-        ease: "Sine.easeIn",
-      });
+      this.tweens.add({ targets: backContainer, scale: 1, duration: 150, ease: "Sine.easeIn" });
     });
-
-    // Click: sound + transition
     backRect.on("pointerdown", () => {
-      if (this.game?.sfxVolume > 0)
-        this.sound.play("selection", { volume: this.game.sfxVolume });
-      this.scene.start("MainMenuScene");
+      // SFX uses current global volume
+      if ((this.game?.sfxVolume ?? this.sound.volume) > 0) {
+        this.sound.play("selection"); // let global manager handle volume
+      }
+      this.scene.start("MainMenuScene"); // don't touch music; MusicManager prevents same-track restart
     });
 
     // --- Level Buttons aligned like main menu ---
@@ -93,12 +97,19 @@ backArrow.y -= 3;
     const startY = height / 2 - blockHeight / 2;
 
     levels.forEach((lvl, i) => {
-      this._makeUIButton(width / 2, startY + i * spacing, lvl.label, () => {
-        this.scene.start(lvl.key);
-      });
+    this._makeUIButton(width / 2, startY + i * spacing, lvl.label, () => {
+    // SFX
+    if ((this.game?.sfxVolume ?? this.sound.volume) > 0) this.sound.play("selection");
+
+    // 🔇 Kill current (menu) music before entering a level
+    this.game.musicManager?.stop();
+
+    // Go to the selected level
+    this.scene.start(lvl.key);
+  });
     });
 
-    // ESC returns to main menu
+    // ESC returns to main menu (again: don't touch music)
     this._escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC, false);
     this._escKey.on("down", () => this.scene.start("MainMenuScene"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this._escKey?.destroy());
@@ -142,8 +153,6 @@ backArrow.y -= 3;
       this.tweens.add({ targets: btn, scale: 1.0, duration: 140, ease: "Power1" });
     });
     rect.on("pointerdown", () => {
-      if (this.game?.sfxVolume > 0)
-        this.sound.play("selection", { volume: this.game.sfxVolume });
       const t = this.tweens.add({ targets: btn, scale: 0.92, duration: 90, yoyo: true, ease: "Power1" });
       t.once("complete", onClick);
     });

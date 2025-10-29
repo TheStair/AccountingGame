@@ -344,15 +344,26 @@ export class GameOverScene extends Scene {
   }
 
   createMenuButtons(centerX, baseY) {
-    const gap = 240;
+  const gap = 240;
 
-    this._makeBrownButton(centerX - gap / 2, baseY, "Play Again", () => {
-      const restartScene = this._resolveRestartScene();
-      this.scene.start(restartScene);
-    });
+  // --- Play Again button ---
+  this._makeBrownButton(centerX - gap / 2, baseY, "Play Again", () => {
+    const restartScene = this._resolveRestartScene();
 
-    this._makeBrownButton(centerX + gap / 2, baseY, "Main Menu", () => {
-      this.scene.start("MainMenuScene");
-    });
-  }
+    // 🔇 Kill all current music and sounds before restarting
+    this.game.musicManager?.stop();
+    this.sound.stopAll();
+
+    this.scene.start(restartScene);
+  });
+
+  // --- Main Menu button ---
+  this._makeBrownButton(centerX + gap / 2, baseY, "Main Menu", () => {
+    // 🔇 Kill all current music and sounds before returning
+    this.game.musicManager?.stop();
+    this.sound.stopAll();
+
+    this.scene.start("MainMenuScene");
+  });
+}
 }

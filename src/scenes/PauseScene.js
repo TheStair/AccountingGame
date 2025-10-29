@@ -160,24 +160,24 @@ export class PauseScene extends Scene {
         );
 
         this.returnToMainMenuButton = this.createStyledButton(
-            (width * 3) / 4,
-            height / 2 +
-                FIRST_RECTANGLE_HEIGHT / 2 +
-                SECOND_RECTANGLE_HEIGHT / 2 +
-                vertical_shift_to_center,
-            "Return to Main Menu",
-            () => {
-                if (this.game.sfxVolume > 0) {
-                    this.sound.play("selection", {
-                        volume: this.game.sfxVolume,
-                    });
-                }
-                this.game.events.emit("exit-game");
-                this.scene.stop(this.parentScene);
-                this.scene.start("MainMenuScene");
-                this.scene.stop(); // stop PauseScene
-            }
-        );
+  (width * 3) / 4,
+  height / 2 + FIRST_RECTANGLE_HEIGHT / 2 + SECOND_RECTANGLE_HEIGHT / 2 + vertical_shift_to_center,
+  "Return to Main Menu",
+  () => {
+    if (this.game.sfxVolume > 0) {
+      this.sound.play("selection", { volume: this.game.sfxVolume });
+    }
+
+    // 🔇 Kill ANY music/SFX currently playing
+    this.game.musicManager?.stop();   // stop tracked background music
+    this.sound.stopAll();             // safety net: stop all active sounds
+
+    this.game.events.emit("exit-game");
+    this.scene.stop(this.parentScene);   // stop the gameplay scene
+    this.scene.start("MainMenuScene");   // go to main menu
+    this.scene.stop();                   // close PauseScene
+  }
+);
 
         this.ui.add([this.resumeButton, this.returnToMainMenuButton]);
 
