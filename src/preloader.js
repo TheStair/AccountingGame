@@ -51,6 +51,8 @@ export class Preloader extends Phaser.Scene {
 
         // Home Screen
         this.load.image("home_bg", "HomeScreen.png");
+        this.load.image("gm3_shared_bg", "level1.jpg");   // ✅ for GM3Level1/2/3 game-over
+        this.load.image("gameover_bg",  "gameover.jpg");  // ✅ for MainScene game-over
         this.load.image("home_clouds", "HomeScreenClouds.png");
         this.load.image("home_text", "HomeScreenText.png");
         this.load.image("volumeIcon", "volume.png");
