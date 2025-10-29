@@ -94,8 +94,9 @@ export class Preloader extends Phaser.Scene {
         this.load.image("knighthawks", "fonts/knight3.png");
 
         // Audio
-        this.load.audio("game_bgm", "music/game_bgm.wav");
+        this.load.audio("game_bgm", "music/game_bgm.mp3");
         this.load.audio("menu_bgm", "music/menu_bgm.mp3");
+        this.load.audio("game3", "music/game3.mp3");
         this.load.audio("selection", "music/selection_sound.wav");
         this.load.audio("correct", "music/correct_sound.wav");
         this.load.audio("error", "music/error_sound.mp3");

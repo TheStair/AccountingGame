@@ -25,6 +25,7 @@ export default class GM3Level1 extends BaseGM3Scene {
   }
 
   buildLevel() {
+    this.sound.play("game3", { loop: true, volume: this.game.sfxVolume ?? 1 });
     const buf = this.cache.binary.get("gm3_easy_xlsx");
     if (!buf) return this._failAndBack("Excel file not found.");
 
