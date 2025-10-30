@@ -262,6 +262,7 @@ export class MainScene extends Scene {
             this.config.belt_labels = [1, 2, 3, 4, 5];
             this.game_key = "game2";
         }
+        this.scene.launch("MenuScene", { gameType: game_type });
 
         this.answer_stats = new Map(
             this.config.basket_types.map((type) => [
