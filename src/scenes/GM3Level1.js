@@ -1,4 +1,3 @@
-// src/scenes/GM3Level1.js
 import * as XLSX from "xlsx";
 import BaseGM3Scene from "./BaseGM3Scene";
 
@@ -34,19 +33,31 @@ export default class GM3Level1 extends BaseGM3Scene {
     if (!sheetName) return this._failAndBack("Sheet 'A=L+SE - Easy' not found.");
     const sh = wb.Sheets[sheetName];
 
+    // --- Extract ALL questions (no cap); no repeats by shuffling once ---
     const rows = [];
-    for (let r = 4; r <= 23; r++) {
+    let emptyStreak = 0;
+    const MAX_SCAN_ROWS = 2000;
+
+    for (let r = 4; r <= MAX_SCAN_ROWS; r++) {
       const qCell = sh[`F${r}`], gCell = sh[`G${r}`], hCell = sh[`H${r}`], iCell = sh[`I${r}`], jCell = sh[`J${r}`], kCell = sh[`K${r}`];
       const question = this._getCellText(qCell);
       const A = this._getCellText(gCell), B = this._getCellText(hCell), C = this._getCellText(iCell), D = this._getCellText(jCell);
-      if (!question || (!A && !B && !C && !D)) continue;
+      const allBlank = (!question && !A && !B && !C && !D);
+      if (allBlank) {
+        emptyStreak++; if (emptyStreak >= 10) break; else continue;
+      } else emptyStreak = 0;
+
       let correctIndex = this._fromKCell(kCell);
       if (correctIndex === -1) correctIndex = this._detectGoodGreen([gCell, hCell, iCell, jCell]);
       if (correctIndex === -1) continue;
+
       rows.push({ question, answers: [A, B, C, D], correctIndex });
     }
+
+    if (!rows.length) return this._failAndBack("No valid questions found in the sheet.");
+
     Phaser.Utils.Array.Shuffle(rows);
-    this.questions = rows.slice(0, 10);
+    this.questions = rows; // use ALL questions; single pass => no repeats
 
     const { width, height } = this.scale;
 
@@ -55,7 +66,6 @@ export default class GM3Level1 extends BaseGM3Scene {
       .setOrigin(0.5).setDisplaySize(width, height).setDepth(0);
 
     // --- HUD: SCORE top-left, TIMER top-right ---
-    // Reposition existing scoreText if BaseGM3Scene created it; otherwise create a new one.
     if (!this.scoreText) {
       this.scoreText = this.add.text(20, 16, "", {
         fontSize: "40px",
@@ -83,7 +93,7 @@ export default class GM3Level1 extends BaseGM3Scene {
     if (typeof this.timeLeft !== "number") this.timeLeft = 90;
     this._updateTimerUI();
 
-    // Question text (compact)
+    // Question text
     const qWrapW = Math.min(560, Math.floor(width * 0.6));
     this.qText = this.add.text(width / 2, height * 0.26, "", {
       fontSize: "30px",
@@ -130,7 +140,7 @@ export default class GM3Level1 extends BaseGM3Scene {
       this.ansNodes[i].txt.setPosition(x, y);
     }
 
-    // --- Floating +100 at the OLD timer position (center under the question) ---
+    // Floating +100
     this.plusTextAnchor = { x: width / 2, y: height * 0.51 };
     this.plusText = this.add.text(this.plusTextAnchor.x, this.plusTextAnchor.y, "+100", {
       fontSize: "48px",
@@ -138,7 +148,7 @@ export default class GM3Level1 extends BaseGM3Scene {
       fontFamily: '"Jersey 10", sans-serif',
     }).setOrigin(0.5).setDepth(15).setStroke("#7f1a02", 3).setAlpha(0);
 
-    // Hide most UI until countdown ends
+    // Hide gameplay UI until start
     this._uiNodes = [
       this.qText,
       this.timerText,
@@ -150,10 +160,100 @@ export default class GM3Level1 extends BaseGM3Scene {
     this.currentIndex = 0;
     this._showCurrent(false);
 
-    // Pre-start beige card FIRST (then countdown & start timer)
+    // Persistent start card
     this._showPreStartCard();
   }
 
+  // --- Pre-start beige card with perfectly aligned button hitbox (Level 1) ---
+_showPreStartCard() {
+  if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
+  this._uiNodes?.forEach(n => n && n.setVisible(false));
+  this.input.enabled = true;
+
+  const { width, height } = this.scale;
+
+  // Block background clicks
+  const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.25)
+    .setDepth(998)
+    .setInteractive()
+    .setScrollFactor(0);
+
+  // Card (no scale to avoid pointer math issues)
+  const card = this.add.container(width / 2, height / 2)
+    .setDepth(999)
+    .setAlpha(0)
+    .setScrollFactor(0);
+
+  const panelW = Math.min(720, Math.floor(width * 0.86));
+  const panelH = 220;
+  const BEIGE = 0xF5DEB3, BROWN = 0x7f1a02, ACCENT = 0xdcc89f;
+
+  const g = this.add.graphics();
+  g.lineStyle(6, BROWN, 1);
+  g.fillStyle(BEIGE, 1);
+  g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+  g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+  card.add(g);
+
+  const title = this.add.text(0, -40, "Solve the accounting equation", {
+    fontSize: "44px",
+    color: "#7f1a02",
+    fontFamily: '"Jersey 10", sans-serif',
+    align: "center",
+    wordWrap: { width: panelW - 40, useAdvanced: true },
+  }).setOrigin(0.5);
+  card.add(title);
+
+  // Start button (rectangle is the ONLY interactive target)
+  const btnW = 240, btnH = 72, btnY = 50;
+
+  const btnRect = this.add.rectangle(0, btnY, btnW, btnH, BROWN)
+    .setOrigin(0.5)
+    .setStrokeStyle(4, ACCENT)
+    .setDepth(1)
+    .setInteractive({ useHandCursor: true }); // default hit area = exact rect
+
+  const btnTxt = this.add.text(0, btnY, "Start", {
+    fontSize: "38px",
+    color: "#dcc89f",
+    fontFamily: '"Jersey 10", sans-serif',
+  }).setOrigin(0.5).setDepth(2);
+
+  card.add([btnRect, btnTxt]);
+
+  const hoverIn = () => {
+    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.08, duration: 120, ease: "Quad.easeOut" });
+    btnRect.setFillStyle(0x9b2d05);
+    this.input.setDefaultCursor("pointer");
+  };
+  const hoverOut = () => {
+    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.0, duration: 120, ease: "Quad.easeOut" });
+    btnRect.setFillStyle(BROWN);
+    this.input.setDefaultCursor("default");
+  };
+  const startNow = () => {
+    btnRect.disableInteractive();
+    this.tweens.add({
+      targets: [card, overlay],
+      alpha: 0,
+      duration: 200,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        card.destroy();
+        overlay.destroy();
+        this.input.enabled = true;
+        this._startCountdown();
+      },
+    });
+  };
+
+  btnRect.on("pointerover", hoverIn);
+  btnRect.on("pointerout", hoverOut);
+  btnRect.on("pointerdown", startNow);
+  this.input.keyboard?.once?.("keydown-ENTER", startNow);
+
+  this.tweens.add({ targets: card, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+}
   _showCurrent(show = true) {
     if (this.currentIndex >= this.questions.length) return this._finishToGameOver("completed");
     const item = this.questions[this.currentIndex];
@@ -171,9 +271,9 @@ export default class GM3Level1 extends BaseGM3Scene {
     this.input.enabled = false;
     const c = this.currentCorrect;
     if (i === c) {
-      this.onScored(100);                // game logic +100
-      this._updateScoreUI();             // refresh "POINTS:000"
-      this._showPlus100();               // floating +100 popup
+      this.onScored(100);
+      this._updateScoreUI();
+      this._showPlus100();
       this.ansNodes[i].rect.setFillStyle(0x2e7d32);
     } else {
       this.ansNodes[i].rect.setFillStyle(0x8b0000);
@@ -183,55 +283,6 @@ export default class GM3Level1 extends BaseGM3Scene {
       this.currentIndex++;
       this._showCurrent(true);
       this.input.enabled = true;
-    });
-  }
-
-  // --- Pre-start beige card shown BEFORE countdown/timer ---
-  _showPreStartCard() {
-    this.input.enabled = false;
-    if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
-    this._uiNodes?.forEach(n => n && n.setVisible(false));
-
-    const { width, height } = this.scale;
-
-    const card = this.add.container(width / 2, height / 2).setDepth(20).setScale(0.9).setAlpha(0);
-
-    const panelW = Math.min(720, Math.floor(width * 0.86));
-    const panelH = 180;
-
-    const g = this.add.graphics();
-    const BEIGE = 0xF5DEB3;
-    const BROWN = 0x7f1a02;
-
-    g.lineStyle(6, BROWN, 1);
-    g.fillStyle(BEIGE, 1);
-
-    const radius = 18;
-    g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
-    g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
-
-    const title = this.add.text(0, 0, "Solve the accounting equation", {
-      fontSize: "44px",
-      color: "#7f1a02",
-      fontFamily: '"Jersey 10", sans-serif',
-      align: "center",
-      wordWrap: { width: panelW - 40, useAdvanced: true },
-    }).setOrigin(0.5);
-
-    card.add([g, title]);
-
-    this.tweens.add({ targets: card, alpha: 1, scale: 1, duration: 260, ease: "Quad.easeOut" });
-
-    this.time.delayedCall(1200, () => {
-      this.tweens.add({
-        targets: card,
-        alpha: 0,
-        duration: 220,
-        onComplete: () => {
-          card.destroy();
-          this._startCountdown();
-        },
-      });
     });
   }
 
@@ -255,7 +306,6 @@ export default class GM3Level1 extends BaseGM3Scene {
       txt.destroy();
       this._setGameplayUIVisible(true, true);
 
-      // Start the numeric timer
       this.timerEvent = this.time.addEvent({
         delay: 1000,
         loop: true,
@@ -266,10 +316,8 @@ export default class GM3Level1 extends BaseGM3Scene {
         },
       });
 
-      // Ensure first visible values are formatted
       this._updateTimerUI();
       this._updateScoreUI();
-
       this.input.enabled = true;
     });
   }
@@ -282,40 +330,20 @@ export default class GM3Level1 extends BaseGM3Scene {
   }
 
   // --- UI helpers ---
-  _formatScore(n) {
-    return String(Math.max(0, n | 0)).padStart(3, "0");
-  }
-  _updateScoreUI() {
-    if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`);
-  }
-  _updateTimerUI() {
-    if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`);
-  }
+  _formatScore(n) { return String(Math.max(0, n | 0)).padStart(3, "0"); }
+  _updateScoreUI() { if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`); }
+  _updateTimerUI() { if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`); }
   _showPlus100() {
-    // Reuse the same text object; quick pop + fade up
-    const t = this.plusText;
-    if (!t) return;
-    t.setText("+100");
-    t.setPosition(this.plusTextAnchor.x, this.plusTextAnchor.y);
-    t.setAlpha(1).setScale(1);
-    this.tweens.killTweensOf(t);
-    this.tweens.add({
-      targets: t,
-      y: this.plusTextAnchor.y - 30,
-      alpha: 0,
-      scale: 1.15,
-      duration: 650,
-      ease: "Quad.easeOut",
-    });
+    const t = this.plusText; if (!t) return;
+    t.setText("+100"); t.setPosition(this.plusTextAnchor.x, this.plusTextAnchor.y);
+    t.setAlpha(1).setScale(1); this.tweens.killTweensOf(t);
+    this.tweens.add({ targets: t, y: this.plusTextAnchor.y - 30, alpha: 0, scale: 1.15, duration: 650, ease: "Quad.easeOut" });
   }
 
   _failAndBack(msg) {
     const { width, height } = this.scale;
     this.add.text(width / 2, height / 2, msg, {
-      fontSize: "18px",
-      color: "#ffffff",
-      align: "center",
-      wordWrap: { width: width * 0.9 },
+      fontSize: "18px", color: "#ffffff", align: "center", wordWrap: { width: width * 0.9 },
     }).setOrigin(0.5).setDepth(20);
     this.time.delayedCall(2200, () => this.scene.start("GM3LevelSelect"));
   }

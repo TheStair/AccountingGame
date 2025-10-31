@@ -1,4 +1,3 @@
-// src/scenes/GM3Level2.js
 import * as XLSX from "xlsx";
 import BaseGM3Scene from "./BaseGM3Scene";
 
@@ -30,7 +29,6 @@ export default class GM3Level2 extends BaseGM3Scene {
     const buf = this.cache.binary.get("gm3_medium_xlsx");
     if (!buf) return this._failAndBack("Excel file not found.");
 
-    // Parse 'A=L+SE - Medium'
     try {
       const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellHTML: true });
       const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "a=l+se - medium".toLowerCase());
@@ -46,30 +44,35 @@ export default class GM3Level2 extends BaseGM3Scene {
       };
 
       const rows = [];
-      for (let r = 4; r <= 23; r++) {
+      let emptyStreak = 0;
+      const MAX_SCAN_ROWS = 2000;
+
+      for (let r = 4; r <= MAX_SCAN_ROWS; r++) {
         const qCell = sh[`G${r}`];
         const q = this._getCellText(qCell);
-        if (!q) continue;
 
         const asset = normalizeSign(sh[`C${r}`]);
         const liab  = normalizeSign(sh[`D${r}`]);
         const se    = normalizeSign(sh[`E${r}`]);
         const ni    = normalizeSign(sh[`F${r}`]);
 
+        const rowAllBlank = (!q && asset === "BLANK" && liab === "BLANK" && se === "BLANK" && ni === "BLANK");
+
+        if (rowAllBlank) { emptyStreak++; if (emptyStreak >= 10) break; else continue; }
+        else emptyStreak = 0;
+
+        if (!q) continue;
+
         rows.push({ question: q, correct: { Asset: asset, Liability: liab, SE: se, NI: ni } });
       }
 
+      if (!rows.length) return this._failAndBack("No valid questions found in the sheet.");
+
       Phaser.Utils.Array.Shuffle(rows);
-      this.questions = rows.length ? rows.slice(0, 10) : Array.from({ length: 10 }, (_, i) => ({
-        question: `Question ${i + 1}`,
-        correct: { Asset: "BLANK", Liability: "+", SE: "-", NI: "BLANK" },
-      }));
+      this.questions = rows; // all questions; single pass => no repeats
     } catch (e) {
       console.error("GM3Level2 excel parse error:", e);
-      this.questions = Array.from({ length: 10 }, (_, i) => ({
-        question: `Question ${i + 1}`,
-        correct: { Asset: "BLANK", Liability: "+", SE: "-", NI: "BLANK" },
-      }));
+      return this._failAndBack("Unable to read questions from the sheet.");
     }
 
     const { width, height } = this.scale;
@@ -116,7 +119,7 @@ export default class GM3Level2 extends BaseGM3Scene {
       align: "center",
     }).setOrigin(0.5).setDepth(6);
 
-    // --- Floating +200 at the OLD timer position (center under the question) ---
+    // Floating +200
     this.plusTextAnchor = { x: width / 2, y: height * 0.51 };
     this.plusText = this.add.text(this.plusTextAnchor.x, this.plusTextAnchor.y, "+200", {
       fontSize: "48px",
@@ -124,19 +127,15 @@ export default class GM3Level2 extends BaseGM3Scene {
       fontFamily: '"Jersey 10", sans-serif',
     }).setOrigin(0.5).setDepth(15).setStroke("#7f1a02", 3).setAlpha(0);
 
-    // ---- Colors ----
+    // Colors
     const brown = 0x7f1a02;
     const beige = 0xdcc89f;
 
-    // ---- Independent Y controls ----
+    // Layout
     const leftX = width * 0.08;
     const EQ_Y = height * 0.57;
+    const selY = Math.max(EQ_Y + 90, height * 0.72);
 
-    // Selector Y: decoupled from timerText (stays reasonably low on screen)
-    const selY = Math.max(EQ_Y + 90, height * 0.72); // increase 110 if they still touch
-
-
-    // Labels
     const labelStyle = {
       fontFamily: '"Jersey 10", sans-serif',
       fontSize: "42px",
@@ -160,30 +159,24 @@ export default class GM3Level2 extends BaseGM3Scene {
     const pipe    = this.add.text(lblSE.x + lblSE.width + 36, EQ_Y, "|", symbolStyle).setOrigin(0, 0.5).setDepth(6);
     const lblNI   = this.add.text(pipe.x + 22, EQ_Y, "Net Income", labelStyle).setOrigin(0, 0.5).setDepth(6);
 
-    // ---- Selector geometry ----
+    // Selector geometry
     const boxW = 120, boxH = 52;
-
     const assetCenter = lblAsset.x + lblAsset.width / 2;
     const liabCenter  = lblLiab.x + lblLiab.width / 2;
     const seCenter    = lblSE.x + lblSE.width / 2;
     const niCenter    = lblNI.x + lblNI.width / 2;
 
-    const arrowBase = 42;
-    const arrowHeight = 28;
-    const ARROW_V_OFFSET = 14;
-
+    const arrowBase = 42, arrowHeight = 28, ARROW_V_OFFSET = 14;
     const makeArrowPolygon = (base, heightPx, direction) => {
       const half = base / 2;
       return direction === "up"
         ? [-half, 0, half, 0, 0, -heightPx]
         : [-half, 0, half, 0, 0,  heightPx];
     };
-
     const cycleValues = ["BLANK", "+", "-"];
 
     const makeSelector = (centerX, key) => {
       const container = this.add.container(centerX, selY).setDepth(6);
-
       const rect = this.add.rectangle(0, 0, boxW, boxH, beige, 1)
         .setStrokeStyle(3, brown)
         .setInteractive({ useHandCursor: true });
@@ -220,16 +213,14 @@ export default class GM3Level2 extends BaseGM3Scene {
         const cur = this.selections[key];
         const idx = cycleValues.indexOf(cur);
         const next = cycleValues[(idx + 1) % cycleValues.length];
-        this.selections[key] = next;
-        valueText.setText(next);
+        this.selections[key] = next; valueText.setText(next);
         this.sound?.play?.("ui_click");
       };
       const cycleBackward = () => {
         const cur = this.selections[key];
         const idx = cycleValues.indexOf(cur);
         const next = cycleValues[(idx - 1 + cycleValues.length) % cycleValues.length];
-        this.selections[key] = next;
-        valueText.setText(next);
+        this.selections[key] = next; valueText.setText(next);
         this.sound?.play?.("ui_click");
       };
 
@@ -269,7 +260,7 @@ export default class GM3Level2 extends BaseGM3Scene {
       .on("pointerout",  () => nextBtn.setFillStyle(beige))
       .on("pointerdown", () => this._onSubmit());
 
-    // Hide gameplay UI until countdown ends
+    // Hide gameplay UI until start
     this._uiNodes = [
       this.qText,
       this.timerText,
@@ -284,9 +275,102 @@ export default class GM3Level2 extends BaseGM3Scene {
     this.currentIndex = 0;
     this._showCurrent(false);
 
-    // Pre-start card then countdown
+    // Persistent start card
     this._showPreStartCard();
   }
+
+  // --- Pre-start beige card with perfectly aligned button hitbox (Level 2) ---
+_showPreStartCard() {
+  if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
+  this._uiNodes?.forEach(n => n && n.setVisible(false));
+  this.input.enabled = true;
+
+  const { width, height } = this.scale;
+
+  // Block background clicks
+  const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.25)
+    .setDepth(998)
+    .setInteractive()
+    .setScrollFactor(0);
+
+  // Card (no scale)
+  const card = this.add.container(width / 2, height / 2)
+    .setDepth(999)
+    .setAlpha(0)
+    .setScrollFactor(0);
+
+  const panelW = Math.min(800, Math.floor(width * 0.88));
+  const panelH = 280;
+  const BEIGE = 0xF5DEB3, BROWN = 0x7f1a02, ACCENT = 0xdcc89f;
+
+  const g = this.add.graphics();
+  g.lineStyle(6, BROWN, 1);
+  g.fillStyle(BEIGE, 1);
+  g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+  g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+  card.add(g);
+
+  const message = "What is the effect on the financial statement elements?\nClick on up and down arrows or element boxes to indicate change.";
+  const title = this.add.text(0, -40, message, {
+    fontSize: "34px",
+    color: "#7f1a02",
+    fontFamily: '"Jersey 10", sans-serif',
+    align: "center",
+    lineSpacing: 6,
+    wordWrap: { width: panelW - 48, useAdvanced: true },
+  }).setOrigin(0.5);
+  card.add(title);
+
+  // Start button (rectangle is the ONLY interactive target)
+  const btnW = 240, btnH = 72, btnY = 70;
+
+  const btnRect = this.add.rectangle(0, btnY, btnW, btnH, BROWN)
+    .setOrigin(0.5)
+    .setStrokeStyle(4, ACCENT)
+    .setDepth(1)
+    .setInteractive({ useHandCursor: true });
+
+  const btnTxt = this.add.text(0, btnY, "Start", {
+    fontSize: "38px",
+    color: "#dcc89f",
+    fontFamily: '"Jersey 10", sans-serif',
+  }).setOrigin(0.5).setDepth(2);
+
+  card.add([btnRect, btnTxt]);
+
+  const hoverIn = () => {
+    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.08, duration: 120, ease: "Quad.easeOut" });
+    btnRect.setFillStyle(0x9b2d05);
+    this.input.setDefaultCursor("pointer");
+  };
+  const hoverOut = () => {
+    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.0, duration: 120, ease: "Quad.easeOut" });
+    btnRect.setFillStyle(BROWN);
+    this.input.setDefaultCursor("default");
+  };
+  const startNow = () => {
+    btnRect.disableInteractive();
+    this.tweens.add({
+      targets: [card, overlay],
+      alpha: 0,
+      duration: 200,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        card.destroy();
+        overlay.destroy();
+        this.input.enabled = true;
+        this._startCountdown();
+      },
+    });
+  };
+
+  btnRect.on("pointerover", hoverIn);
+  btnRect.on("pointerout", hoverOut);
+  btnRect.on("pointerdown", startNow);
+  this.input.keyboard?.once?.("keydown-ENTER", startNow);
+
+  this.tweens.add({ targets: card, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+}
 
   _showCurrent(show = true) {
     if (this.currentIndex >= this.questions.length) return this._finishToGameOver("completed");
@@ -294,7 +378,7 @@ export default class GM3Level2 extends BaseGM3Scene {
     const q = typeof item === "string" ? item : (item?.question ?? "");
     this.qText.setText(q);
 
-    // Reset all selectors to BLANK each question
+    // Reset selectors to BLANK each question
     this.selections = { Asset: "BLANK", Liability: "BLANK", SE: "BLANK", NI: "BLANK" };
     this.selectors.forEach(s => s.valueText.setText(this.selections[s.key]));
 
@@ -318,74 +402,22 @@ export default class GM3Level2 extends BaseGM3Scene {
 
     if (allMatch) {
       this.onScored(200);
-      this._updateScoreUI();     // refresh POINTS:###
-      this._showPlusAmount(200); // floating +200
-      this._flashScreen(0x2e7d32, 0.35); // green flash
+      this._updateScoreUI();
+      this._showPlusAmount(200);
+      this._flashScreen(0x2e7d32, 0.35);
       if (nextBtn) nextBtn.setFillStyle(0x2e7d32);
     } else {
-      this._flashScreen(0x8b0000, 0.35); // red flash
+      this._flashScreen(0x8b0000, 0.35);
       if (nextBtn) nextBtn.setFillStyle(0x8b0000);
     }
 
-    if (nextBtn) {
-      this.time.delayedCall(350, () => nextBtn.setFillStyle(0xdcc89f));
-    }
+    if (nextBtn) this.time.delayedCall(350, () => nextBtn.setFillStyle(0xdcc89f));
 
     this.input.enabled = false;
     this.time.delayedCall(650, () => {
       this.currentIndex++;
       this._showCurrent(true);
       this.input.enabled = true;
-    });
-  }
-
-  // --- Pre-start beige card ---
-  _showPreStartCard() {
-    this.input.enabled = false;
-    if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
-    this._uiNodes?.forEach(n => n && n.setVisible(false));
-
-    const { width, height } = this.scale;
-
-    const card = this.add.container(width / 2, height / 2).setDepth(20).setScale(0.9).setAlpha(0);
-
-    const panelW = Math.min(800, Math.floor(width * 0.88));
-    const panelH = 220;
-
-    const g = this.add.graphics();
-    const BEIGE = 0xF5DEB3;
-    const BROWN = 0x7f1a02;
-
-    g.lineStyle(6, BROWN, 1);
-    g.fillStyle(BEIGE, 1);
-
-    const radius = 18;
-    g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
-    g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, radius);
-
-    const message = "What is the effect on the financial statement elements?  Click on up and down arrows or element boxes to indicate change";
-    const title = this.add.text(0, 0, message, {
-      fontSize: "34px",
-      color: "#7f1a02",
-      fontFamily: '"Jersey 10", sans-serif',
-      align: "center",
-      wordWrap: { width: panelW - 48, useAdvanced: true },
-    }).setOrigin(0.5);
-
-    card.add([g, title]);
-
-    this.tweens.add({ targets: card, alpha: 1, scale: 1, duration: 260, ease: "Quad.easeOut" });
-
-    this.time.delayedCall(3000, () => {
-      this.tweens.add({
-        targets: card,
-        alpha: 0,
-        duration: 220,
-        onComplete: () => {
-          card.destroy();
-          this._startCountdown();
-        },
-      });
     });
   }
 
@@ -422,7 +454,6 @@ export default class GM3Level2 extends BaseGM3Scene {
       txt.destroy();
       this._setGameplayUIVisible(true, true);
 
-      // Timer tick
       this.timerEvent = this.time.addEvent({
         delay: 1000,
         loop: true,
@@ -435,7 +466,6 @@ export default class GM3Level2 extends BaseGM3Scene {
 
       this._updateTimerUI();
       this._updateScoreUI();
-
       this.input.enabled = true;
     });
   }
@@ -448,39 +478,22 @@ export default class GM3Level2 extends BaseGM3Scene {
   }
 
   // --- UI helpers (same style as Level 1) ---
-  _formatScore(n) {
-    return String(Math.max(0, n | 0)).padStart(3, "0");
-  }
-  _updateScoreUI() {
-    if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`);
-  }
-  _updateTimerUI() {
-    if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`);
-  }
+  _formatScore(n) { return String(Math.max(0, n | 0)).padStart(3, "0"); }
+  _updateScoreUI() { if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`); }
+  _updateTimerUI() { if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`); }
   _showPlusAmount(amount = 200) {
-    const t = this.plusText;
-    if (!t) return;
+    const t = this.plusText; if (!t) return;
     t.setText(`+${amount}`);
     t.setPosition(this.plusTextAnchor.x, this.plusTextAnchor.y);
     t.setAlpha(1).setScale(1);
     this.tweens.killTweensOf(t);
-    this.tweens.add({
-      targets: t,
-      y: this.plusTextAnchor.y - 30,
-      alpha: 0,
-      scale: 1.15,
-      duration: 650,
-      ease: "Quad.easeOut",
-    });
+    this.tweens.add({ targets: t, y: this.plusTextAnchor.y - 30, alpha: 0, scale: 1.15, duration: 650, ease: "Quad.easeOut" });
   }
 
   _failAndBack(msg) {
     const { width, height } = this.scale;
     this.add.text(width / 2, height / 2, msg, {
-      fontSize: "18px",
-      color: "#ffffff",
-      align: "center",
-      wordWrap: { width: width * 0.9 },
+      fontSize: "18px", color: "#ffffff", align: "center", wordWrap: { width: width * 0.9 },
     }).setOrigin(0.5).setDepth(20);
     this.time.delayedCall(2200, () => this.scene.start("GM3LevelSelect"));
   }
