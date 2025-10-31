@@ -8,8 +8,9 @@ export default class GM3Level2 extends BaseGM3Scene {
     this.questions = [];
     this._uiNodes = [];
     this.selectors = [];
-    this.selections = { Asset: "BLANK", Liability: "BLANK", SE: "BLANK", NI: "BLANK" };
-    this.score = 0; // show as POINTS:000
+    // Default all selections to "No Effect"
+    this.selections = { Asset: "No Effect", Liability: "No Effect", SE: "No Effect", NI: "No Effect" };
+    this.score = 0; // show as POINTS: 0000
   }
 
   preload() {
@@ -35,12 +36,14 @@ export default class GM3Level2 extends BaseGM3Scene {
       if (!sheetName) return this._failAndBack("Sheet 'A=L+SE - Medium' not found.");
       const sh = wb.Sheets[sheetName];
 
+      // Normalize any cell into "+", "-", or "No Effect"
       const normalizeSign = (cell) => {
         const raw = this._getCellText(cell);
         const t = (raw ?? "").toString().trim().toUpperCase();
-        if (/[+\uFF0B]/.test(t) || t.includes("PLUS") || t.includes("POSITIVE")) return "+";
-        if (/[-\u2212\u2012\u2013\u2014\u2015]/.test(t) || t.includes("MINUS") || t.includes("NEGATIVE")) return "-";
-        return "BLANK";
+        if (/[+\uFF0B]/.test(t) || t.includes("PLUS") || t.includes("POSITIVE") || t === "U" || t === "UP" || t.includes("INCREASE")) return "+";
+        if (/[-\u2212\u2012\u2013\u2014\u2015]/.test(t) || t.includes("MINUS") || t.includes("NEGATIVE") || t === "O" || t.includes("OPPOSITE") || t.includes("DECREASE")) return "-";
+        // Treat blanks and "NE"/"NO EFFECT"/"NONE" as "No Effect"
+        return "No Effect";
       };
 
       const rows = [];
@@ -56,8 +59,7 @@ export default class GM3Level2 extends BaseGM3Scene {
         const se    = normalizeSign(sh[`E${r}`]);
         const ni    = normalizeSign(sh[`F${r}`]);
 
-        const rowAllBlank = (!q && asset === "BLANK" && liab === "BLANK" && se === "BLANK" && ni === "BLANK");
-
+        const rowAllBlank = (!q && asset === "No Effect" && liab === "No Effect" && se === "No Effect" && ni === "No Effect");
         if (rowAllBlank) { emptyStreak++; if (emptyStreak >= 10) break; else continue; }
         else emptyStreak = 0;
 
@@ -81,28 +83,28 @@ export default class GM3Level2 extends BaseGM3Scene {
     this.add.image(width / 2, height / 2, "gm3_level1_bg")
       .setOrigin(0.5).setDisplaySize(width, height).setDepth(0);
 
-    // --- HUD: SCORE top-left, TIMER top-right ---
+    // --- HUD: SCORE top-left, TIMER top-right (match Level 1 y=2) ---
     if (!this.scoreText) {
-      this.scoreText = this.add.text(20, 16, "", {
+      this.scoreText = this.add.text(20, 2, "", {
         fontSize: "40px",
         color: "#dcc89f",
         fontFamily: '"Jersey 10", sans-serif',
       }).setDepth(6).setOrigin(0, 0).setStroke("#7f1a02", 3);
     } else {
-      this.scoreText.setPosition(20, 3).setOrigin(0, 0)
+      this.scoreText.setPosition(20, 2).setOrigin(0, 0)
         .setFontFamily('"Jersey 10", sans-serif').setFontSize(40)
         .setColor("#dcc89f").setStroke("#7f1a02", 3).setDepth(6);
     }
     this._updateScoreUI();
 
     if (!this.timerText) {
-      this.timerText = this.add.text(width - 20, 16, "", {
+      this.timerText = this.add.text(width - 20, 2, "", {
         fontSize: "40px",
         color: "#dcc89f",
         fontFamily: '"Jersey 10", sans-serif',
       }).setDepth(6).setOrigin(1, 0).setStroke("#7f1a02", 3);
     } else {
-      this.timerText.setPosition(width - 20, 3).setOrigin(1, 0)
+      this.timerText.setPosition(width - 20, 2).setOrigin(1, 0)
         .setFontFamily('"Jersey 10", sans-serif').setFontSize(40)
         .setColor("#dcc89f").setStroke("#7f1a02", 3).setDepth(6);
     }
@@ -173,7 +175,8 @@ export default class GM3Level2 extends BaseGM3Scene {
         ? [-half, 0, half, 0, 0, -heightPx]
         : [-half, 0, half, 0, 0,  heightPx];
     };
-    const cycleValues = ["BLANK", "+", "-"];
+    // Cycle order with "No Effect"
+    const cycleValues = ["No Effect", "+", "-"];
 
     const makeSelector = (centerX, key) => {
       const container = this.add.container(centerX, selY).setDepth(6);
@@ -190,18 +193,21 @@ export default class GM3Level2 extends BaseGM3Scene {
       }).setOrigin(0.5).setDepth(7);
       container.add(valueText);
 
+      const upPts = makeArrowPolygon(arrowBase, arrowHeight, "up");
+      const dnPts = makeArrowPolygon(arrowBase, arrowHeight, "down");
+
       const upPoly = this.add
-        .polygon(20, -boxH / 2 - 5 + ARROW_V_OFFSET, makeArrowPolygon(arrowBase, arrowHeight, "up"), beige)
+        .polygon(20, -boxH / 2 - 5 + ARROW_V_OFFSET, upPts, beige)
         .setStrokeStyle(3, brown)
         .setDepth(7)
-        .setInteractive(new Phaser.Geom.Polygon(makeArrowPolygon(arrowBase, arrowHeight, "up")), Phaser.Geom.Polygon.Contains);
+        .setInteractive(new Phaser.Geom.Polygon(upPts), Phaser.Geom.Polygon.Contains);
       container.add(upPoly);
 
       const downPoly = this.add
-        .polygon(20, boxH / 2 + 5 + ARROW_V_OFFSET, makeArrowPolygon(arrowBase, arrowHeight, "down"), beige)
+        .polygon(20, boxH / 2 + 5 + ARROW_V_OFFSET, dnPts, beige)
         .setStrokeStyle(3, brown)
         .setDepth(7)
-        .setInteractive(new Phaser.Geom.Polygon(makeArrowPolygon(arrowBase, arrowHeight, "down")), Phaser.Geom.Polygon.Contains);
+        .setInteractive(new Phaser.Geom.Polygon(dnPts), Phaser.Geom.Polygon.Contains);
       container.add(downPoly);
 
       upPoly.on("pointerover", () => upPoly.setFillStyle(0xefdcbc, 1));
@@ -279,98 +285,98 @@ export default class GM3Level2 extends BaseGM3Scene {
     this._showPreStartCard();
   }
 
-  // --- Pre-start beige card with perfectly aligned button hitbox (Level 2) ---
-_showPreStartCard() {
-  if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
-  this._uiNodes?.forEach(n => n && n.setVisible(false));
-  this.input.enabled = true;
+  // --- Pre-start beige card ---
+  _showPreStartCard() {
+    if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
+    this._uiNodes?.forEach(n => n && n.setVisible(false));
+    this.input.enabled = true;
 
-  const { width, height } = this.scale;
+    const { width, height } = this.scale;
 
-  // Block background clicks
-  const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.25)
-    .setDepth(998)
-    .setInteractive()
-    .setScrollFactor(0);
+    // Block background clicks
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.25)
+      .setDepth(998)
+      .setInteractive()
+      .setScrollFactor(0);
 
-  // Card (no scale)
-  const card = this.add.container(width / 2, height / 2)
-    .setDepth(999)
-    .setAlpha(0)
-    .setScrollFactor(0);
+    // Card (no scale)
+    const card = this.add.container(width / 2, height / 2)
+      .setDepth(999)
+      .setAlpha(0)
+      .setScrollFactor(0);
 
-  const panelW = Math.min(800, Math.floor(width * 0.88));
-  const panelH = 280;
-  const BEIGE = 0xF5DEB3, BROWN = 0x7f1a02, ACCENT = 0xdcc89f;
+    const panelW = Math.min(800, Math.floor(width * 0.88));
+    const panelH = 280;
+    const BEIGE = 0xF5DEB3, BROWN = 0x7f1a02, ACCENT = 0xdcc89f;
 
-  const g = this.add.graphics();
-  g.lineStyle(6, BROWN, 1);
-  g.fillStyle(BEIGE, 1);
-  g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
-  g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
-  card.add(g);
+    const g = this.add.graphics();
+    g.lineStyle(6, BROWN, 1);
+    g.fillStyle(BEIGE, 1);
+    g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+    g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+    card.add(g);
 
-  const message = "What is the effect on the financial statement elements?\nClick on up and down arrows or element boxes to indicate change.";
-  const title = this.add.text(0, -40, message, {
-    fontSize: "34px",
-    color: "#7f1a02",
-    fontFamily: '"Jersey 10", sans-serif',
-    align: "center",
-    lineSpacing: 6,
-    wordWrap: { width: panelW - 48, useAdvanced: true },
-  }).setOrigin(0.5);
-  card.add(title);
+    const message = "What is the effect on the financial statement elements?\nClick on up and down arrows or element boxes to indicate change.";
+    const title = this.add.text(0, -40, message, {
+      fontSize: "34px",
+      color: "#7f1a02",
+      fontFamily: '"Jersey 10", sans-serif',
+      align: "center",
+      lineSpacing: 6,
+      wordWrap: { width: panelW - 48, useAdvanced: true },
+    }).setOrigin(0.5);
+    card.add(title);
 
-  // Start button (rectangle is the ONLY interactive target)
-  const btnW = 240, btnH = 72, btnY = 70;
+    // Start button
+    const btnW = 240, btnH = 72, btnY = 70;
 
-  const btnRect = this.add.rectangle(0, btnY, btnW, btnH, BROWN)
-    .setOrigin(0.5)
-    .setStrokeStyle(4, ACCENT)
-    .setDepth(1)
-    .setInteractive({ useHandCursor: true });
+    const btnRect = this.add.rectangle(0, btnY, btnW, btnH, BROWN)
+      .setOrigin(0.5)
+      .setStrokeStyle(4, ACCENT)
+      .setDepth(1)
+      .setInteractive({ useHandCursor: true });
 
-  const btnTxt = this.add.text(0, btnY, "Start", {
-    fontSize: "38px",
-    color: "#dcc89f",
-    fontFamily: '"Jersey 10", sans-serif',
-  }).setOrigin(0.5).setDepth(2);
+    const btnTxt = this.add.text(0, btnY, "Start", {
+      fontSize: "38px",
+      color: "#dcc89f",
+      fontFamily: '"Jersey 10", sans-serif',
+    }).setOrigin(0.5).setDepth(2);
 
-  card.add([btnRect, btnTxt]);
+    card.add([btnRect, btnTxt]);
 
-  const hoverIn = () => {
-    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.08, duration: 120, ease: "Quad.easeOut" });
-    btnRect.setFillStyle(0x9b2d05);
-    this.input.setDefaultCursor("pointer");
-  };
-  const hoverOut = () => {
-    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.0, duration: 120, ease: "Quad.easeOut" });
-    btnRect.setFillStyle(BROWN);
-    this.input.setDefaultCursor("default");
-  };
-  const startNow = () => {
-    btnRect.disableInteractive();
-    this.tweens.add({
-      targets: [card, overlay],
-      alpha: 0,
-      duration: 200,
-      ease: "Quad.easeOut",
-      onComplete: () => {
-        card.destroy();
-        overlay.destroy();
-        this.input.enabled = true;
-        this._startCountdown();
-      },
-    });
-  };
+    const hoverIn = () => {
+      this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.08, duration: 120, ease: "Quad.easeOut" });
+      btnRect.setFillStyle(0x9b2d05);
+      this.input.setDefaultCursor("pointer");
+    };
+    const hoverOut = () => {
+      this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.0, duration: 120, ease: "Quad.easeOut" });
+      btnRect.setFillStyle(BROWN);
+      this.input.setDefaultCursor("default");
+    };
+    const startNow = () => {
+      btnRect.disableInteractive();
+      this.tweens.add({
+        targets: [card, overlay],
+        alpha: 0,
+        duration: 200,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          card.destroy();
+          overlay.destroy();
+          this.input.enabled = true;
+          this._startCountdown();
+        },
+      });
+    };
 
-  btnRect.on("pointerover", hoverIn);
-  btnRect.on("pointerout", hoverOut);
-  btnRect.on("pointerdown", startNow);
-  this.input.keyboard?.once?.("keydown-ENTER", startNow);
+    btnRect.on("pointerover", hoverIn);
+    btnRect.on("pointerout", hoverOut);
+    btnRect.on("pointerdown", startNow);
+    this.input.keyboard?.once?.("keydown-ENTER", startNow);
 
-  this.tweens.add({ targets: card, alpha: 1, duration: 220, ease: "Quad.easeOut" });
-}
+    this.tweens.add({ targets: card, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+  }
 
   _showCurrent(show = true) {
     if (this.currentIndex >= this.questions.length) return this._finishToGameOver("completed");
@@ -378,8 +384,8 @@ _showPreStartCard() {
     const q = typeof item === "string" ? item : (item?.question ?? "");
     this.qText.setText(q);
 
-    // Reset selectors to BLANK each question
-    this.selections = { Asset: "BLANK", Liability: "BLANK", SE: "BLANK", NI: "BLANK" };
+    // Reset selectors to "No Effect" each question
+    this.selections = { Asset: "No Effect", Liability: "No Effect", SE: "No Effect", NI: "No Effect" };
     this.selectors.forEach(s => s.valueText.setText(this.selections[s.key]));
 
     if (show) this._setGameplayUIVisible(true);
@@ -390,7 +396,7 @@ _showPreStartCard() {
     if (!item) return;
 
     const sel = this.selections;
-    const cor = item.correct ?? { Asset: "", Liability: "", SE: "", NI: "" };
+    const cor = item.correct ?? { Asset: "No Effect", Liability: "No Effect", SE: "No Effect", NI: "No Effect" };
 
     const allMatch =
       sel.Asset === cor.Asset &&
@@ -478,9 +484,17 @@ _showPreStartCard() {
   }
 
   // --- UI helpers (same style as Level 1) ---
-  _formatScore(n) { return String(Math.max(0, n | 0)).padStart(3, "0"); }
-  _updateScoreUI() { if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`); }
-  _updateTimerUI() { if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`); }
+  _formatScore(n) { 
+  return String(Math.max(0, n | 0)).padStart(4, "0"); // 4 digits -> "0000"
+}
+  _updateScoreUI() {
+    if (this.scoreText)
+      this.scoreText.setText(`POINTS: ${this._formatScore(this.score)}`);
+  }
+  _updateTimerUI() {
+    if (this.timerText)
+      this.timerText.setText(`Time: ${this.timeLeft | 0}s`);
+  }
   _showPlusAmount(amount = 200) {
     const t = this.plusText; if (!t) return;
     t.setText(`+${amount}`);

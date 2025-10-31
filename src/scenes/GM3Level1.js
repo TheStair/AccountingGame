@@ -8,7 +8,7 @@ export default class GM3Level1 extends BaseGM3Scene {
     this.questions = [];
     this.currentCorrect = -1;
     this._uiNodes = [];
-    this.score = 0; // start score at 0 -> shows as POINTS:000
+    this.score = 0; // start score at 0 -> shows as POINTS: 0000
   }
 
   preload() {
@@ -165,95 +165,96 @@ export default class GM3Level1 extends BaseGM3Scene {
   }
 
   // --- Pre-start beige card with perfectly aligned button hitbox (Level 1) ---
-_showPreStartCard() {
-  if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
-  this._uiNodes?.forEach(n => n && n.setVisible(false));
-  this.input.enabled = true;
+  _showPreStartCard() {
+    if (this.timerEvent) { this.timerEvent.remove(false); this.timerEvent = null; }
+    this._uiNodes?.forEach(n => n && n.setVisible(false));
+    this.input.enabled = true;
 
-  const { width, height } = this.scale;
+    const { width, height } = this.scale;
 
-  // Block background clicks
-  const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.25)
-    .setDepth(998)
-    .setInteractive()
-    .setScrollFactor(0);
+    // Block background clicks
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.25)
+      .setDepth(998)
+      .setInteractive()
+      .setScrollFactor(0);
 
-  // Card (no scale to avoid pointer math issues)
-  const card = this.add.container(width / 2, height / 2)
-    .setDepth(999)
-    .setAlpha(0)
-    .setScrollFactor(0);
+    // Card (no scale to avoid pointer math issues)
+    const card = this.add.container(width / 2, height / 2)
+      .setDepth(999)
+      .setAlpha(0)
+      .setScrollFactor(0);
 
-  const panelW = Math.min(720, Math.floor(width * 0.86));
-  const panelH = 220;
-  const BEIGE = 0xF5DEB3, BROWN = 0x7f1a02, ACCENT = 0xdcc89f;
+    const panelW = Math.min(720, Math.floor(width * 0.86));
+    const panelH = 220;
+    const BEIGE = 0xF5DEB3, BROWN = 0x7f1a02, ACCENT = 0xdcc89f;
 
-  const g = this.add.graphics();
-  g.lineStyle(6, BROWN, 1);
-  g.fillStyle(BEIGE, 1);
-  g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
-  g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
-  card.add(g);
+    const g = this.add.graphics();
+    g.lineStyle(6, BROWN, 1);
+    g.fillStyle(BEIGE, 1);
+    g.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+    g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
+    card.add(g);
 
-  const title = this.add.text(0, -40, "Solve the accounting equation", {
-    fontSize: "44px",
-    color: "#7f1a02",
-    fontFamily: '"Jersey 10", sans-serif',
-    align: "center",
-    wordWrap: { width: panelW - 40, useAdvanced: true },
-  }).setOrigin(0.5);
-  card.add(title);
+    const title = this.add.text(0, -40, "Solve the accounting equation", {
+      fontSize: "44px",
+      color: "#7f1a02",
+      fontFamily: '"Jersey 10", sans-serif',
+      align: "center",
+      wordWrap: { width: panelW - 40, useAdvanced: true },
+    }).setOrigin(0.5);
+    card.add(title);
 
-  // Start button (rectangle is the ONLY interactive target)
-  const btnW = 240, btnH = 72, btnY = 50;
+    // Start button (rectangle is the ONLY interactive target)
+    const btnW = 240, btnH = 72, btnY = 50;
 
-  const btnRect = this.add.rectangle(0, btnY, btnW, btnH, BROWN)
-    .setOrigin(0.5)
-    .setStrokeStyle(4, ACCENT)
-    .setDepth(1)
-    .setInteractive({ useHandCursor: true }); // default hit area = exact rect
+    const btnRect = this.add.rectangle(0, btnY, btnW, btnH, BROWN)
+      .setOrigin(0.5)
+      .setStrokeStyle(4, ACCENT)
+      .setDepth(1)
+      .setInteractive({ useHandCursor: true }); // default hit area = exact rect
 
-  const btnTxt = this.add.text(0, btnY, "Start", {
-    fontSize: "38px",
-    color: "#dcc89f",
-    fontFamily: '"Jersey 10", sans-serif',
-  }).setOrigin(0.5).setDepth(2);
+    const btnTxt = this.add.text(0, btnY, "Start", {
+      fontSize: "38px",
+      color: "#dcc89f",
+      fontFamily: '"Jersey 10", sans-serif',
+    }).setOrigin(0.5).setDepth(2);
 
-  card.add([btnRect, btnTxt]);
+    card.add([btnRect, btnTxt]);
 
-  const hoverIn = () => {
-    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.08, duration: 120, ease: "Quad.easeOut" });
-    btnRect.setFillStyle(0x9b2d05);
-    this.input.setDefaultCursor("pointer");
-  };
-  const hoverOut = () => {
-    this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.0, duration: 120, ease: "Quad.easeOut" });
-    btnRect.setFillStyle(BROWN);
-    this.input.setDefaultCursor("default");
-  };
-  const startNow = () => {
-    btnRect.disableInteractive();
-    this.tweens.add({
-      targets: [card, overlay],
-      alpha: 0,
-      duration: 200,
-      ease: "Quad.easeOut",
-      onComplete: () => {
-        card.destroy();
-        overlay.destroy();
-        this.input.enabled = true;
-        this._startCountdown();
-      },
-    });
-  };
+    const hoverIn = () => {
+      this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.08, duration: 120, ease: "Quad.easeOut" });
+      btnRect.setFillStyle(0x9b2d05);
+      this.input.setDefaultCursor("pointer");
+    };
+    const hoverOut = () => {
+      this.tweens.add({ targets: [btnRect, btnTxt], scale: 1.0, duration: 120, ease: "Quad.easeOut" });
+      btnRect.setFillStyle(BROWN);
+      this.input.setDefaultCursor("default");
+    };
+    const startNow = () => {
+      btnRect.disableInteractive();
+      this.tweens.add({
+        targets: [card, overlay],
+        alpha: 0,
+        duration: 200,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          card.destroy();
+          overlay.destroy();
+          this.input.enabled = true;
+          this._startCountdown();
+        },
+      });
+    };
 
-  btnRect.on("pointerover", hoverIn);
-  btnRect.on("pointerout", hoverOut);
-  btnRect.on("pointerdown", startNow);
-  this.input.keyboard?.once?.("keydown-ENTER", startNow);
+    btnRect.on("pointerover", hoverIn);
+    btnRect.on("pointerout", hoverOut);
+    btnRect.on("pointerdown", startNow);
+    this.input.keyboard?.once?.("keydown-ENTER", startNow);
 
-  this.tweens.add({ targets: card, alpha: 1, duration: 220, ease: "Quad.easeOut" });
-}
+    this.tweens.add({ targets: card, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+  }
+
   _showCurrent(show = true) {
     if (this.currentIndex >= this.questions.length) return this._finishToGameOver("completed");
     const item = this.questions[this.currentIndex];
@@ -330,9 +331,11 @@ _showPreStartCard() {
   }
 
   // --- UI helpers ---
-  _formatScore(n) { return String(Math.max(0, n | 0)).padStart(3, "0"); }
-  _updateScoreUI() { if (this.scoreText) this.scoreText.setText(`POINTS:${this._formatScore(this.score)}`); }
-  _updateTimerUI() { if (this.timerText) this.timerText.setText(`Time:${this.timeLeft|0}s`); }
+  _formatScore(n) { 
+  return String(Math.max(0, n | 0)).padStart(4, "0"); // 4 digits -> "0000"
+}
+  _updateScoreUI() { if (this.scoreText) this.scoreText.setText(`POINTS: ${this._formatScore(this.score)}`); }
+  _updateTimerUI() { if (this.timerText) this.timerText.setText(`Time: ${this.timeLeft | 0}s`); }
   _showPlus100() {
     const t = this.plusText; if (!t) return;
     t.setText("+100"); t.setPosition(this.plusTextAnchor.x, this.plusTextAnchor.y);
