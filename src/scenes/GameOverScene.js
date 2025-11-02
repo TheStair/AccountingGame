@@ -25,26 +25,49 @@ export class GameOverScene extends Scene {
     return "MainScene";
   }
 
+  // --- Helpers to globally suspend / resume Phaser keyboard while typing ---
+  _suspendKeys() {
+    if (this.input?.keyboard) {
+      // Stop Phaser from intercepting any key events
+      this.input.keyboard.enabled = false;
+      // Clear any global captures (prevents default on WASD, space, etc.)
+      this.input.keyboard.clearCaptures?.();
+    }
+  }
+  _resumeKeys() {
+    if (this.input?.keyboard) {
+      this.input.keyboard.enabled = true;
+    }
+  }
+
   async create() {
     const { width, height } = this.scale;
     const centerX = width / 2;
     const centerY = height / 2;
 
+    // Defensive: if this scene was launched on top, make sure gameplay isn’t still reading keys
+    const maybeMain = this.scene.get("MainScene");
+    if (maybeMain?.scene?.isActive()) {
+      maybeMain.scene.pause();
+    }
+    // Clear any stale captures from previous scenes (space, arrows, WASD, etc.)
+    this.input.keyboard?.clearCaptures?.();
+
     // --- Tasteful palette (harmonizes with GM3) ---
     const COLORS = {
-      BG_DIM: 0x0b0907,            // very dark brown-black overlay
-      PANEL_BEIGE: 0xeadbb7,       // softer beige
-      PANEL_BEIGE_HOVER: 0xf0e5c9, // gentle hover (kept for input styling)
-      STROKE_BROWN: 0x7f1a02,      // accent brown-red
-      TEXT_LIGHT: "#efe6d3",       // warm light text
-      TEXT_DARK: "#6b2a12",        // softer brown
+      BG_DIM: 0x0b0907,
+      PANEL_BEIGE: 0xeadbb7,
+      PANEL_BEIGE_HOVER: 0xf0e5c9,
+      STROKE_BROWN: 0x7f1a02,
+      TEXT_LIGHT: "#efe6d3",
+      TEXT_DARK: "#6b2a12",
       OK: 0x2e7d32,
       ERR: 0x8b0000,
-      ACCENT: 0xb98a5e,            // inner accent line
-      BTN_BROWN: 0x7f1a02,         // button fill
-      BTN_BROWN_HOVER: 0x9a2a10,   // hover fill
-      BTN_STROKE: 0x4e1a0c,        // darker edge
-      BTN_TEXT: "#ffffff",         // white text
+      ACCENT: 0xb98a5e,
+      BTN_BROWN: 0x7f1a02,
+      BTN_BROWN_HOVER: 0x9a2a10,
+      BTN_STROKE: 0x4e1a0c,
+      BTN_TEXT: "#ffffff",
     };
 
     // --- Choose background based on restart scene ---
@@ -118,7 +141,7 @@ export class GameOverScene extends Scene {
     deco.lineTo(centerX + panelW * 0.34, centerY - panelH / 2 + 76);
     deco.strokePath();
 
-    // --- SCORE (raised even higher) ---
+    // --- SCORE ---
     this.add.text(centerX, centerY - 52, "YOUR SCORE", {
       fontSize: "28px",
       color: COLORS.TEXT_DARK,
@@ -133,7 +156,6 @@ export class GameOverScene extends Scene {
       align: "center",
     }).setOrigin(0.5).setDepth(3).setStroke("#7f1a02", 4);
 
-    // Subtle count up
     this.tweens.addCounter({
       from: 0,
       to: Math.max(0, parseInt(this.end_points, 10) || 0),
@@ -142,7 +164,7 @@ export class GameOverScene extends Scene {
       onUpdate: (tw) => scoreText.setText(String(Math.floor(tw.getValue()))),
     });
 
-    // --- Leaderboard preview / qualification (raised even higher) ---
+    // --- Leaderboard preview / qualification ---
     let qualifies = null;
     let previewRank = null;
 
@@ -157,17 +179,20 @@ export class GameOverScene extends Scene {
       previewRank = result.preview_rank ?? null;
     } catch (err) {
       console.error("Error checking leaderboard preview:", err);
-      this._line(centerX, centerY + 36, "Error connecting to leaderboard.", COLORS.ERR);
+      this._line(centerX, centerY + 36, "Error connecting to leaderboard.", 0x8b0000);
     }
 
     if (qualifies === true) {
       this.showQualificationUI(centerX, centerY + 52, previewRank);
     } else if (qualifies === false) {
-      this._line(centerX, centerY + 52, "You did not make the leaderboard.", COLORS.ERR);
+      this._line(centerX, centerY + 52, "You did not make the leaderboard.", 0x8b0000);
     }
 
-    // --- Buttons Row (BROWN, rounded, white text) ---
+    // --- Buttons Row ---
     this.createMenuButtons(centerX, centerY + panelH / 2 - 54);
+
+    // Safety: if this scene shuts down, always resume keys
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this._resumeKeys());
   }
 
   _line(cx, cy, msg, tintHex) {
@@ -196,7 +221,6 @@ export class GameOverScene extends Scene {
     }
   }
 
-  // Very small confetti pop used only on successful submit
   _burstConfetti(x, y, qty = 8) {
     const p = this.add.particles(x, y, "confetti", {
       lifespan: 750,
@@ -212,7 +236,6 @@ export class GameOverScene extends Scene {
     this.time.delayedCall(760, () => p.destroy());
   }
 
-  // Brown rounded button with white text, accurate hover via an explicit Zone hit-area
   _makeBrownButton(x, y, label, onClick) {
     const COLORS = {
       FILL: 0x7f1a02,
@@ -221,7 +244,6 @@ export class GameOverScene extends Scene {
       TEXT: "#ffffff",
     };
 
-    // Text
     const txt = this.add.text(x, y, label, {
       fontSize: "32px",
       color: COLORS.TEXT,
@@ -229,14 +251,12 @@ export class GameOverScene extends Scene {
       align: "center",
     }).setOrigin(0.5).setDepth(7);
 
-    // Dimensions
     const padX = 26;
     const padY = 14;
     const w = Math.max(220, txt.width + padX * 2);
     const h = Math.max(62, txt.height + padY * 2);
     const r = 18;
 
-    // Graphics rounded rect
     const g = this.add.graphics().setDepth(6);
     const draw = (fill) => {
       g.clear();
@@ -247,7 +267,6 @@ export class GameOverScene extends Scene {
     };
     draw(COLORS.FILL);
 
-    // Explicit hit zone (exact size), guarantees correct hover even if text overlaps
     const zone = this.add.zone(x, y, w, h).setOrigin(0.5).setDepth(8).setInteractive({
       cursor: "pointer",
       useHandCursor: true,
@@ -260,9 +279,7 @@ export class GameOverScene extends Scene {
     zone.on("pointerdown", () => { g.y += 1; txt.y += 1; });
     zone.on("pointerup",   () => { g.y -= 1; txt.y -= 1; if (typeof onClick === "function") onClick(); });
 
-    // Keep things grouped for z-order sanity
     const container = this.add.container(0, 0, [g, txt, zone]).setSize(w, h).setDepth(7);
-
     return container;
   }
 
@@ -282,7 +299,7 @@ export class GameOverScene extends Scene {
       fontFamily: '"Jersey 10", sans-serif',
     }).setOrigin(0.5).setDepth(6);
 
-    // DOM input styled on-theme (raised with rest)
+    // --- DOM input on-theme
     const input = this.add.dom(centerX, centerY + 64, "input", {
       type: "text",
       maxlength: 3,
@@ -300,8 +317,30 @@ export class GameOverScene extends Scene {
     input.node.style.padding = "8px 10px";
     input.node.style.boxShadow = "0 2px 0 #7f1a02";
 
+    // 🔒 Keyboard focus handling: let WASD/space/etc. type into the input
+    const el = input.node;
+    const focusInput = () => { el.focus(); el.select?.(); };
+    // When focused: disable Phaser keyboard entirely
+    el.addEventListener("focus", () => this._suspendKeys());
+    // When leaving the field: re-enable Phaser keyboard
+    el.addEventListener("blur",  () => this._resumeKeys());
+    // Never let keystrokes bubble to Phaser while typing
+    ["keydown","keyup","keypress","input"].forEach(evt =>
+      el.addEventListener(evt, e => e.stopPropagation(), { capture: true })
+    );
+    // Allow Enter to submit while focused (works even with Phaser keys suspended)
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSubmit();
+      }
+    });
+
+    // Focus ASAP so players can type immediately
+    this.time.delayedCall(0, focusInput);
+
     const handleSubmit = async () => {
-      const username = (input.node.value || "").toUpperCase().slice(0, 3) || "AAA";
+      const username = (el.value || "").toUpperCase().slice(0, 3) || "AAA";
       const score = parseInt(this.end_points, 10);
 
       try {
@@ -322,6 +361,9 @@ export class GameOverScene extends Scene {
           fontFamily: '"Jersey 10", sans-serif',
         }).setOrigin(0.5).setDepth(7).setStroke("#7f1a02", 3).setTint(0x2e7d32);
 
+        // We’re navigating away; re-enable keys for the next scene
+        this._resumeKeys();
+
         this.time.delayedCall(900, () => {
           this.scene.start("Leaderboard", {
             gameKey: this.gameKey,
@@ -335,35 +377,36 @@ export class GameOverScene extends Scene {
           color: "#efe6d3",
           fontFamily: '"Jersey 10", sans-serif',
         }).setOrigin(0.5).setDepth(7).setStroke("#7f1a02", 3).setTint(0x8b0000);
+        // Keep focus so they can correct/try again
+        this.time.delayedCall(0, focusInput);
       }
     };
 
-    // Brown rounded button with accurate hover
+    // Submit button
     this._makeBrownButton(centerX, centerY + 116, "Submit", handleSubmit);
-    this.input.keyboard.once("keydown-ENTER", handleSubmit);
+    // If you also want Enter to work when the input is NOT focused:
+    this.input.keyboard.once?.("keydown-ENTER", () => {
+      if (document.activeElement !== el) handleSubmit();
+    });
   }
 
   createMenuButtons(centerX, baseY) {
-  const gap = 240;
+    const gap = 240;
 
-  // --- Play Again button ---
-  this._makeBrownButton(centerX - gap / 2, baseY, "Play Again", () => {
-    const restartScene = this._resolveRestartScene();
+    this._makeBrownButton(centerX - gap / 2, baseY, "Play Again", () => {
+      // Re-enable keys for the next scene
+      this._resumeKeys();
+      this.game.musicManager?.stop();
+      this.sound.stopAll();
+      const restartScene = this._resolveRestartScene();
+      this.scene.start(restartScene);
+    });
 
-    // 🔇 Kill all current music and sounds before restarting
-    this.game.musicManager?.stop();
-    this.sound.stopAll();
-
-    this.scene.start(restartScene);
-  });
-
-  // --- Main Menu button ---
-  this._makeBrownButton(centerX + gap / 2, baseY, "Main Menu", () => {
-    // 🔇 Kill all current music and sounds before returning
-    this.game.musicManager?.stop();
-    this.sound.stopAll();
-
-    this.scene.start("MainMenuScene");
-  });
-}
+    this._makeBrownButton(centerX + gap / 2, baseY, "Main Menu", () => {
+      this._resumeKeys();
+      this.game.musicManager?.stop();
+      this.sound.stopAll();
+      this.scene.start("MainMenuScene");
+    });
+  }
 }
