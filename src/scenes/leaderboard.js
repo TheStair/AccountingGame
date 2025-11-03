@@ -151,7 +151,9 @@ export class Leaderboard extends Scene {
 
         // --- Scrollbar ---
         const scrollBarX = panelX + panelWidth / 2 - 8;
-        const scrollBarHeight = maskVisibleHeight - 20;
+        const trackMargin = 10; // matches the padding used in updateScroll()
+        const scrollBarHeight = maskVisibleHeight - trackMargin * 2;
+
         this.add.rectangle(
             scrollBarX,
             maskTopY + maskVisibleHeight / 2,
@@ -159,7 +161,7 @@ export class Leaderboard extends Scene {
             scrollBarHeight,
             0x3d0c02
         );
-        this.scrollThumb = this.add.rectangle(scrollBarX, maskTopY + 10, 6, 60, 0xdcc89f);
+                this.scrollThumb = this.add.rectangle(scrollBarX, maskTopY + 10, 6, 60, 0xdcc89f);
 
         // Scrolling logic
         this.scrollY = 0;
@@ -236,7 +238,7 @@ export class Leaderboard extends Scene {
             // Rows
             data.forEach((entry, i) => {
                 const color = (this.highlightName && entry.username === this.highlightName)
-                    ? "#00ff88" : "#dcc89f";
+                    ? "#570600" : "#dcc89f";
 
                 this.tableGroup.add(
                     this.add.text(rankX, y, `${i + 1}.`, {
