@@ -1,27 +1,48 @@
 import { Scene } from "phaser";
 
-
 export class Leaderboard extends Scene {
     constructor() {
-        super('Leaderboard');
+        super("Leaderboard");
     }
 
     init(data) {
         this.gameKey = data.gameKey || "game1";
         this.highlightName = data.highlightName || null;
     }
-    
 
     async create() {
-        const bg = this.add.image(0, 0, 'home_bg')
+        // --- Background ---
+        this.add.image(0, 0, "home_bg")
             .setOrigin(0, 0)
             .setDisplaySize(this.scale.width, this.scale.height);
 
-        const back = this.add.image(50, 50, 'exitIcon')
+        // --- Back button ---
+        const BASE_SCALE = 0.05;
+        const HOVER_SCALE = BASE_SCALE * 1.15;
+        const back = this.add.image(50, 40, "exitIcon")
             .setInteractive()
-            .setScale(0.1)
-            .on('pointerdown', () => this.scene.start('MainMenuScene'));
+            .setScale(BASE_SCALE);
 
+        back.on("pointerover", () => {
+            this.tweens.add({ targets: back, scale: HOVER_SCALE, duration: 120, ease: "Sine.easeOut" });
+            back.setTint(0xffffff);
+        });
+        back.on("pointerout", () => {
+            this.tweens.add({ targets: back, scale: BASE_SCALE, duration: 120, ease: "Sine.easeIn" });
+            back.clearTint();
+        });
+        back.on("pointerdown", () => {
+            this.tweens.add({
+                targets: back,
+                scale: BASE_SCALE * 0.92,
+                duration: 70,
+                yoyo: true,
+                ease: "Sine.easeInOut",
+                onComplete: () => this.scene.start("MainMenuScene"),
+            });
+        });
+
+        // --- Dimmed background ---
         this.add.rectangle(
             this.scale.width / 2,
             this.scale.height / 2,
@@ -31,133 +52,174 @@ export class Leaderboard extends Scene {
             0.4
         );
 
-        // --- Center panel ---
-        const panelWidth = 700;
+        // --- Center panel (larger to fit 10 rows + buttons) ---
+        const panelWidth = 750;
         const panelHeight = 500;
         const panelX = this.scale.width / 2;
         const panelY = this.scale.height / 2;
-        const panel = this.add.rectangle(panelX, panelY, panelWidth, panelHeight, 0xa8321a, 0.95)
-            .setStrokeStyle(3, 0xffffff);
+
+        const panel = this.add.rectangle(panelX, panelY, panelWidth, panelHeight, 0xa8321a)
+            .setStrokeStyle(3, 0x570600);
 
         // --- Title ---
-        this.add.text(panelX, panelY - panelHeight / 2 + 40, 'Leaderboard', {
-            fontSize: '34px',
-            fill: '#ffffff',
-            fontStyle: 'bold',
+        this.add.text(panelX, panelY - panelHeight / 2 + 40, "Leaderboard", {
+            fontSize: "50px",
+            fill: "#dcc89f",
+            fontFamily: '"Jersey 10", sans-serif',
         }).setOrigin(0.5);
 
-
-        // --- Game mode buttons ---
+        // --- Mode Buttons (inside panel) ---
         const modes = [
-            { label: 'Game 1', key: 'game1' },
-            { label: 'Game 2', key: 'game2' },
-            { label: 'Math 1', key: 'game3-1' },
-            { label: 'Math 2', key: 'game3-2' },
-            { label: 'Math 3', key: 'game3-3' },
+            { label: "D. vs. Cr.", key: "game1" },
+            { label: "Elements", key: "game2" },
+            { label: "Equation 1", key: "game3-1" },
+            { label: "Equation 2", key: "game3-2" },
+            { label: "Equation 3", key: "game3-3" },
         ];
 
-        const base_url = this.game.apiBaseUrl;
+        const createButton = (x, y, labelText, onClick) => {
+            const border = this.add.rectangle(0, 0, 104, 64, 0x7f1a02).setDepth(3);
+            border.setStrokeStyle(3, 0xdcc89f);
 
-        this.activeButton = null;
-        const buttonSpacing = 100;
-        const buttonStartX = this.scale.width / 2 - ((modes.length - 1) * buttonSpacing) / 2;
-        const buttonY = panelY + panelHeight / 2 - 30;
+            const rect = this.add.rectangle(0, 0, 100, 60, 0x7f1a02).setDepth(3);
+            const label = this.add.text(0, 0, labelText, {
+                fontSize: "22px",
+                fontFamily: '"Jersey 10", sans-serif',
+                color: "#dcc89f",
+                align: "center",
+                wordWrap: { width: 90, useAdvancedWrap: true },  // wrap text within button width
+            }).setOrigin(0.5).setDepth(3);
+
+            const button = this.add.container(x, y, [border, rect, label]).setDepth(3);
+            rect.setInteractive({ useHandCursor: true });
+
+            rect.on("pointerover", () => {
+                rect.setFillStyle(0xa8321a);
+                this.tweens.add({ targets: button, scale: 1.05, duration: 150, ease: "Power1" });
+            });
+            rect.on("pointerout", () => {
+                rect.setFillStyle(0x7f1a02);
+                this.tweens.add({ targets: button, scale: 1, duration: 150, ease: "Power1" });
+            });
+            rect.on("pointerdown", () => {
+                if ((this.game.sfxVolume ?? this.sound.volume) > 0) this.sound.play("selection");
+                const tween = this.tweens.add({
+                    targets: button,
+                    scale: 0.9,
+                    duration: 80,
+                    yoyo: true,
+                    ease: "Power1",
+                });
+                tween.once("complete", onClick);
+            });
+
+            return button;
+        };
+
+        const buttonSpacing = 120;
+        const buttonRowY = panelY + panelHeight / 2 - 60;
+        const buttonStartX = panelX - ((modes.length - 1) * buttonSpacing) / 2;
 
         modes.forEach((mode, i) => {
-            const btn = this.add.text(buttonStartX + i * buttonSpacing, buttonY, mode.label, {
-                fontSize: '20px',
-                fill: '#00ff88',
-                backgroundColor: '#333333',
-                padding: { x: 10, y: 4 },
-            })
-                .setOrigin(0.5)
-                .setInteractive({ useHandCursor: true })
-                .on('pointerdown', () => this.loadLeaderboard(mode.key, btn))
-                .on('pointerover', () => btn.setStyle({ backgroundColor: '#007755' }))
-                .on('pointerout', () => {
-                    if (btn !== this.activeButton) btn.setStyle({ backgroundColor: '#333333' });
-                });
+            const btn = createButton(
+                buttonStartX + i * buttonSpacing,
+                buttonRowY,
+                mode.label,
+                () => this.loadLeaderboard(mode.key, btn)
+            );
+            btn.setData("modeKey", mode.key);
         });
 
-        // --- Scrollable container setup ---
-        const maskHeight = 220;
-        const maskY = panelY - 20;
-        this.tableGroup = this.add.container(panelX, maskY);
+        // --- Scrollable container ---
+        const visibleRows = 10;
+        const rowHeight = 28;
+        const maskHeight = visibleRows * rowHeight + 40;
+        const maskTopY = panelY - 90; // shifted up slightly
+        this.tableGroup = this.add.container(panelX, maskTopY);
 
-        // --- Mask to clip overflowing text ---
+        // --- Mask to clip overflowing entries ---
         const maskGraphics = this.make.graphics();
         maskGraphics.fillStyle(0xffffff);
-        maskGraphics.fillRect(panelX - panelWidth / 2 + 20, maskY - maskHeight / 2, panelWidth - 40, maskHeight);
+        maskGraphics.fillRect(panelX - panelWidth / 2 + 40, maskTopY - maskHeight / 2, panelWidth - 80, maskHeight);
         const mask = maskGraphics.createGeometryMask();
         this.tableGroup.setMask(mask);
 
-        // --- Scroll controls ---
+        // --- Scrollbar ---
+        const scrollBarHeight = maskHeight - 20;
+        const scrollBarX = panelX + panelWidth / 2 - 8;
+        this.add.rectangle(scrollBarX, maskTopY + scrollBarHeight / 2, 6, scrollBarHeight, 0x3d0c02);
+        this.scrollThumb = this.add.rectangle(scrollBarX, maskTopY, 6, 60, 0xdcc89f);
+
         this.scrollY = 0;
-        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
-            this.scrollY += deltaY * 0.5; // adjust scroll speed here
+        this.input.on("wheel", (_, __, ___, deltaY) => {
+            this.scrollY -= deltaY * 0.4;
             this.updateScroll();
         });
 
-        // --- Load default leaderboard ---
+        // --- Load leaderboard ---
         this.loadLeaderboard(this.gameKey);
     }
 
     updateScroll() {
-        // clamp scroll
-        const minY = -Math.max(0, this.contentHeight - 200);
+        const overflow = Math.max(0, this.contentHeight - 280);
+
+        if (overflow <= 0) {
+            // Everything fits: reset scroll and hide thumb
+            this.scrollY = 0;
+            this.tableGroup.y = this.scale.height / 2 - 20;
+            this.scrollThumb.setVisible(false);
+            return;
+        }
+
+        // Otherwise normal scroll logic
+        this.scrollThumb.setVisible(true);
+        const minY = -overflow;
         const maxY = 0;
         this.scrollY = Phaser.Math.Clamp(this.scrollY, minY, maxY);
         this.tableGroup.y = this.scale.height / 2 - 20 + this.scrollY;
+
+        // update thumb position
+        const scrollRatio = -this.scrollY / overflow;
+        const trackTop = this.scale.height / 2 - 100;
+        const trackHeight = 240;
+        this.scrollThumb.y = trackTop + scrollRatio * trackHeight;
     }
 
     async loadLeaderboard(mode, button = null) {
-        // Reset buttons
-        if (this.activeButton) this.activeButton.setStyle({ backgroundColor: '#333333' });
-        if (button) {
-            button.setStyle({ backgroundColor: '#007755' });
-            this.activeButton = button;
-        }
-
-        // Clear previous entries
+        // Clear old
         this.tableGroup.removeAll(true);
 
         try {
             const res = await fetch(`${this.game.apiBaseUrl}/leaderboard/${mode}`);
             const data = await res.json();
-
             data.sort((a, b) => b.score - a.score);
 
-            // --- Column positions relative to container center ---
-            const rankX = -180;
-            const nameX = -40;
-            const scoreX = 160;
-            let startY = -100;
+            const nameX = -30;
+            const rankX = nameX - 170;
+            const scoreX = nameX + 200;
+            let startY = -125;
 
-            // --- Header row ---
-            const headerStyle = { fontSize: '20px', fill: '#00ff88', fontStyle: 'bold' };
-            const rankHeader = this.add.text(rankX, startY - 30, '#', headerStyle).setOrigin(0, 0);
-            const nameHeader = this.add.text(nameX, startY - 30, 'Name', headerStyle).setOrigin(0, 0);
-            const scoreHeader = this.add.text(scoreX, startY - 30, 'Score', headerStyle).setOrigin(1, 0);
+            // --- Headers ---
+            const headerStyle = {
+                fontSize: "24px",
+                fill: "#dcc89f",
+                fontFamily: '"Jersey 10", sans-serif',
+            };
+            const rankHeader = this.add.text(rankX, startY - 30, "Rank", headerStyle).setOrigin(0, 0);
+            const nameHeader = this.add.text(nameX, startY - 30, "Name", headerStyle).setOrigin(0, 0);
+            const scoreHeader = this.add.text(scoreX, startY - 30, "Score", headerStyle).setOrigin(1, 0);
             this.tableGroup.add(rankHeader);
             this.tableGroup.add(nameHeader);
             this.tableGroup.add(scoreHeader);
 
-            // --- Data rows ---
+            // --- Rows ---
             data.forEach((entry, i) => {
                 const y = startY + i * 28;
-                
-                const color =
-                    this.highlightName && entry.username === this.highlightName
-                        ? "#00ff88"
-                        : "#ffffff";
+                const color = this.highlightName && entry.username === this.highlightName ? "#00ff88" : "#dcc89f";
 
-                const rankText = this.add.text(rankX, y, `${i + 1}.`, { fontSize: '18px', fill: color }).setOrigin(0, 0);
-                const nameText = this.add.text(nameX, y, entry.username, { fontSize: '18px', fill: color }).setOrigin(0, 0);
-                const scoreText = this.add.text(scoreX, y, entry.score.toString(), { fontSize: '18px', fill: color }).setOrigin(1, 0);
-
-                this.tableGroup.add(rankText);
-                this.tableGroup.add(nameText);
-                this.tableGroup.add(scoreText);
+                this.tableGroup.add(this.add.text(rankX, y, `${i + 1}.`, { fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif' }).setOrigin(0, 0));
+                this.tableGroup.add(this.add.text(nameX, y, entry.username, { fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif' }).setOrigin(0, 0));
+                this.tableGroup.add(this.add.text(scoreX, y, entry.score.toString(), { fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif' }).setOrigin(1, 0));
             });
 
             this.contentHeight = data.length * 28;
@@ -165,9 +227,9 @@ export class Leaderboard extends Scene {
             this.updateScroll();
         } catch (err) {
             console.error(err);
-            const msg = this.add.text(0, 0, 'Error loading leaderboard', {
-                fontSize: '20px',
-                fill: '#ff4444',
+            const msg = this.add.text(0, 0, "Error loading leaderboard", {
+                fontSize: "20px",
+                fill: "#ff4444",
             }).setOrigin(0.5);
             this.tableGroup.add(msg);
         }
