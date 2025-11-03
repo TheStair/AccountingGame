@@ -42,15 +42,7 @@ export class Leaderboard extends Scene {
             });
         });
 
-        // --- Dimmed background ---
-        this.add.rectangle(
-            this.scale.width / 2,
-            this.scale.height / 2,
-            this.scale.width,
-            this.scale.height,
-            0x000000,
-            0.4
-        );
+
 
         // --- Center panel (larger to fit 10 rows + buttons) ---
         const panelWidth = 750;
@@ -133,41 +125,61 @@ export class Leaderboard extends Scene {
         // --- Scrollable container ---
         const visibleRows = 10;
         const rowHeight = 28;
-        const maskHeight = visibleRows * rowHeight + 40;
-        const maskTopY = panelY - panelHeight / 2 + 100;
+
+        // Define top and bottom of the visible window (below title, above buttons)
+        const maskTopY = panelY - panelHeight / 2 + 80;
+        const maskBottomY = panelY + panelHeight / 2 - 140;
+        const maskVisibleHeight = maskBottomY - maskTopY;
+
+        this.maskTopY = maskTopY;
+        this.maskVisibleHeight = maskVisibleHeight;
+
+        // Container that holds leaderboard rows (anchor at top)
         this.tableGroup = this.add.container(panelX, maskTopY);
 
-        // --- Mask to clip overflowing entries ---
+        // --- Mask to clip both top and bottom ---
         const maskGraphics = this.make.graphics();
         maskGraphics.fillStyle(0xffffff);
-        maskGraphics.fillRect(panelX - panelWidth / 2 + 40, maskTopY - maskHeight / 2, panelWidth - 80, maskHeight);
+        maskGraphics.fillRect(
+            panelX - panelWidth / 2 + 40,
+            maskTopY,
+            panelWidth - 80,
+            maskVisibleHeight
+        );
         const mask = maskGraphics.createGeometryMask();
         this.tableGroup.setMask(mask);
 
         // --- Scrollbar ---
-        const scrollBarHeight = maskHeight - 20;
         const scrollBarX = panelX + panelWidth / 2 - 8;
-        this.add.rectangle(scrollBarX, maskTopY + scrollBarHeight / 2, 6, scrollBarHeight, 0x3d0c02);
-        this.scrollThumb = this.add.rectangle(scrollBarX, maskTopY, 6, 60, 0xdcc89f);
+        const scrollBarHeight = maskVisibleHeight - 20;
+        this.add.rectangle(
+            scrollBarX,
+            maskTopY + maskVisibleHeight / 2,
+            6,
+            scrollBarHeight,
+            0x3d0c02
+        );
+        this.scrollThumb = this.add.rectangle(scrollBarX, maskTopY + 10, 6, 60, 0xdcc89f);
 
+        // Scrolling logic
         this.scrollY = 0;
         this.input.on("wheel", (_, __, ___, deltaY) => {
-            this.scrollY -= deltaY * 0.4;
-            this.updateScroll();
+            this.scrollY -= deltaY * 0.25;
+            this.updateScroll(this.maskVisibleHeight, this.maskTopY);
         });
+
 
         // --- Load leaderboard ---
         this.loadLeaderboard(this.gameKey);
     }
 
-    updateScroll() {
-        const maskHeight = 10 * 28 + 40; // visibleRows * rowHeight + padding
-        const overflow = Math.max(0, this.contentHeight - maskHeight);
+    updateScroll(maskVisibleHeight, maskTopY) {
+        const overflow = Math.max(0, this.contentHeight - maskVisibleHeight);
 
         if (overflow <= 0) {
             this.scrollY = 0;
-            this.tableGroup.y = this.scale.height / 2 - 20;
             this.scrollThumb.setVisible(false);
+            this.tableGroup.y = maskTopY;          // top-anchored
             return;
         }
 
@@ -176,13 +188,14 @@ export class Leaderboard extends Scene {
         const minY = -overflow;
         const maxY = 0;
         this.scrollY = Phaser.Math.Clamp(this.scrollY, minY, maxY);
-        this.tableGroup.y = this.scale.height / 2 - 20 + this.scrollY;
 
-        // --- Thumb position ---
+        // move content
+        this.tableGroup.y = maskTopY + this.scrollY;
+
+        // thumb position
         const scrollRatio = -this.scrollY / overflow;
-        const trackTop = this.scale.height / 2 - maskHeight / 2 + 10;
-        const trackHeight = maskHeight - this.scrollThumb.height - 20;
-
+        const trackTop = maskTopY + 10;
+        const trackHeight = maskVisibleHeight - this.scrollThumb.height - 20;
         this.scrollThumb.y = trackTop + scrollRatio * trackHeight;
     }
 
@@ -195,44 +208,74 @@ export class Leaderboard extends Scene {
             const data = await res.json();
             data.sort((a, b) => b.score - a.score);
 
+            // Column Xs (unchanged)
             const nameX = -30;
             const rankX = nameX - 170;
             const scoreX = nameX + 200;
-            let startY = -125;
 
-            // --- Headers ---
+            // Start just inside the mask (top-anchored container!)
+            let y = 8;               // small padding from the top of the mask
+            const rowHeight = 28;
+            const headerHeight = 26; // matches your font size ~24px with a little breathing room
+
+            // Headers (at the top of the scrollable area)
             const headerStyle = {
                 fontSize: "24px",
                 fill: "#dcc89f",
                 fontFamily: '"Jersey 10", sans-serif',
             };
-            const rankHeader = this.add.text(rankX, startY - 30, "Rank", headerStyle).setOrigin(0, 0);
-            const nameHeader = this.add.text(nameX, startY - 30, "Name", headerStyle).setOrigin(0, 0);
-            const scoreHeader = this.add.text(scoreX, startY - 30, "Score", headerStyle).setOrigin(1, 0);
+            const rankHeader = this.add.text(rankX, y, "Rank", headerStyle).setOrigin(0, 0);
+            const nameHeader = this.add.text(nameX, y, "Name", headerStyle).setOrigin(0, 0);
+            const scoreHeader = this.add.text(scoreX, y, "Score", headerStyle).setOrigin(1, 0);
             this.tableGroup.add(rankHeader);
             this.tableGroup.add(nameHeader);
             this.tableGroup.add(scoreHeader);
 
-            // --- Rows ---
-            data.forEach((entry, i) => {
-                const y = startY + i * 28;
-                const color = this.highlightName && entry.username === this.highlightName ? "#00ff88" : "#dcc89f";
+            y += headerHeight + 6;  // space under header
 
-                this.tableGroup.add(this.add.text(rankX, y, `${i + 1}.`, { fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif' }).setOrigin(0, 0));
-                this.tableGroup.add(this.add.text(nameX, y, entry.username, { fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif' }).setOrigin(0, 0));
-                this.tableGroup.add(this.add.text(scoreX, y, entry.score.toString(), { fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif' }).setOrigin(1, 0));
+            // Rows
+            data.forEach((entry, i) => {
+                const color = (this.highlightName && entry.username === this.highlightName)
+                    ? "#00ff88" : "#dcc89f";
+
+                this.tableGroup.add(
+                    this.add.text(rankX, y, `${i + 1}.`, {
+                        fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif'
+                    }).setOrigin(0, 0)
+                );
+                this.tableGroup.add(
+                    this.add.text(nameX, y, entry.username, {
+                        fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif'
+                    }).setOrigin(0, 0)
+                );
+                this.tableGroup.add(
+                    this.add.text(scoreX, y, entry.score.toString(), {
+                        fontSize: "22px", fill: color, fontFamily: '"Jersey 10", sans-serif'
+                    }).setOrigin(1, 0)
+                );
+
+                y += rowHeight;
             });
 
-            this.contentHeight = data.length * 28;
+            // Content height is total vertical span we just used
+            this.contentHeight = y;
+
+            // Reset scroll and update with correct mask numbers
             this.scrollY = 0;
-            this.updateScroll();
+            this.updateScroll(this.maskVisibleHeight, this.maskTopY);
+
         } catch (err) {
             console.error(err);
-            const msg = this.add.text(0, 0, "Error loading leaderboard", {
+            const msg = this.add.text(0, 20, "Error loading leaderboard", {
                 fontSize: "20px",
                 fill: "#ff4444",
-            }).setOrigin(0.5);
+                fontFamily: '"Jersey 10", sans-serif',
+            }).setOrigin(0.5, 0);
             this.tableGroup.add(msg);
+            this.contentHeight = 40;
+            this.scrollY = 0;
+            this.updateScroll(maskVisibleHeight, maskTopY);
         }
     }
+
 }
