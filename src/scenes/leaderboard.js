@@ -32,11 +32,11 @@ export class Leaderboard extends Scene {
         );
 
         // --- Center panel ---
-        const panelWidth = 500;
-        const panelHeight = 400;
+        const panelWidth = 700;
+        const panelHeight = 500;
         const panelX = this.scale.width / 2;
         const panelY = this.scale.height / 2;
-        const panel = this.add.rectangle(panelX, panelY, panelWidth, panelHeight, 0x1b1b1b, 0.95)
+        const panel = this.add.rectangle(panelX, panelY, panelWidth, panelHeight, 0xa8321a, 0.95)
             .setStrokeStyle(3, 0xffffff);
 
         // --- Title ---
