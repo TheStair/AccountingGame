@@ -353,9 +353,9 @@ export class GameOverScene extends Scene {
         if (!res.ok) throw new Error(`Submit failed (${res.status})`);
         await res.json();
 
-        this._burstConfetti(centerX, centerY + 96, 10);
+        this._burstConfetti(centerX, centerY + 60, 10);
 
-        this.add.text(centerX, centerY + 96, "Score submitted!", {
+        this.add.text(centerX, centerY + 60, "Score submitted!", {
           fontSize: "26px",
           color: "#efe6d3",
           fontFamily: '"Jersey 10", sans-serif',
@@ -372,7 +372,7 @@ export class GameOverScene extends Scene {
         });
       } catch (err) {
         console.error("Error submitting score:", err);
-        this.add.text(centerX, centerY + 96, "Submission failed.", {
+        this.add.text(centerX, centerY + 60, "Submission failed.", {
           fontSize: "26px",
           color: "#efe6d3",
           fontFamily: '"Jersey 10", sans-serif',

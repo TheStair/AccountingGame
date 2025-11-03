@@ -150,18 +150,30 @@ export class Leaderboard extends Scene {
         this.tableGroup.setMask(mask);
 
         // --- Scrollbar ---
-        const scrollBarX = panelX + panelWidth / 2 - 8;
-        const trackMargin = 10; // matches the padding used in updateScroll()
-        const scrollBarHeight = maskVisibleHeight - trackMargin * 2;
+        const trackMargin = 10;
 
-        this.add.rectangle(
-            scrollBarX,
-            maskTopY + maskVisibleHeight / 2,
-            6,
-            scrollBarHeight,
-            0x3d0c02
+        // Corrected height and Y so bottom aligns with mask bottom
+        const scrollBarHeight = maskVisibleHeight - trackMargin * 2;
+        const scrollBarX = panelX + panelWidth / 2 - 8;
+        const trackY = maskTopY + trackMargin + scrollBarHeight / 2;
+
+        // Draw dark background track (centered correctly)
+        this.scrollTrack = this.add.rectangle(
+        scrollBarX,
+        trackY,
+        6,
+        scrollBarHeight,
+        0x3d0c02
+        ).setOrigin(0.5); // default, but explicit for clarity
+
+        // Light thumb
+        this.scrollThumb = this.add.rectangle(
+        scrollBarX,
+        maskTopY + trackMargin,
+        6,
+        60,
+        0xdcc89f
         );
-                this.scrollThumb = this.add.rectangle(scrollBarX, maskTopY + 10, 6, 60, 0xdcc89f);
 
         // Scrolling logic
         this.scrollY = 0;
@@ -177,11 +189,12 @@ export class Leaderboard extends Scene {
 
     updateScroll(maskVisibleHeight, maskTopY) {
         const overflow = Math.max(0, this.contentHeight - maskVisibleHeight);
+        const trackMargin = 10;
 
         if (overflow <= 0) {
             this.scrollY = 0;
             this.scrollThumb.setVisible(false);
-            this.tableGroup.y = maskTopY;          // top-anchored
+            this.tableGroup.y = maskTopY;
             return;
         }
 
@@ -190,14 +203,13 @@ export class Leaderboard extends Scene {
         const minY = -overflow;
         const maxY = 0;
         this.scrollY = Phaser.Math.Clamp(this.scrollY, minY, maxY);
-
-        // move content
         this.tableGroup.y = maskTopY + this.scrollY;
 
-        // thumb position
+        // Adjust scrollbar thumb position
         const scrollRatio = -this.scrollY / overflow;
-        const trackTop = maskTopY + 10;
-        const trackHeight = maskVisibleHeight - this.scrollThumb.height - 20;
+        const trackTop = maskTopY + trackMargin;
+        const trackHeight = maskVisibleHeight - this.scrollThumb.height - trackMargin * 2;
+
         this.scrollThumb.y = trackTop + scrollRatio * trackHeight;
     }
 
