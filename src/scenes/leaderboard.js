@@ -134,7 +134,7 @@ export class Leaderboard extends Scene {
         const visibleRows = 10;
         const rowHeight = 28;
         const maskHeight = visibleRows * rowHeight + 40;
-        const maskTopY = panelY - 90; // shifted up slightly
+        const maskTopY = panelY - panelHeight / 2 + 100;
         this.tableGroup = this.add.container(panelX, maskTopY);
 
         // --- Mask to clip overflowing entries ---
@@ -161,27 +161,28 @@ export class Leaderboard extends Scene {
     }
 
     updateScroll() {
-        const overflow = Math.max(0, this.contentHeight - 280);
+        const maskHeight = 10 * 28 + 40; // visibleRows * rowHeight + padding
+        const overflow = Math.max(0, this.contentHeight - maskHeight);
 
         if (overflow <= 0) {
-            // Everything fits: reset scroll and hide thumb
             this.scrollY = 0;
             this.tableGroup.y = this.scale.height / 2 - 20;
             this.scrollThumb.setVisible(false);
             return;
         }
 
-        // Otherwise normal scroll logic
         this.scrollThumb.setVisible(true);
+
         const minY = -overflow;
         const maxY = 0;
         this.scrollY = Phaser.Math.Clamp(this.scrollY, minY, maxY);
         this.tableGroup.y = this.scale.height / 2 - 20 + this.scrollY;
 
-        // update thumb position
+        // --- Thumb position ---
         const scrollRatio = -this.scrollY / overflow;
-        const trackTop = this.scale.height / 2 - 100;
-        const trackHeight = 240;
+        const trackTop = this.scale.height / 2 - maskHeight / 2 + 10;
+        const trackHeight = maskHeight - this.scrollThumb.height - 20;
+
         this.scrollThumb.y = trackTop + scrollRatio * trackHeight;
     }
 

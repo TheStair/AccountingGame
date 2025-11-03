@@ -105,8 +105,8 @@ export class GameOverScene extends Scene {
     }).setDepth(1.2);
 
     // --- Smaller, cleaner parchment panel ---
-    const panelW = Math.min(660, Math.floor(width * 0.78));
-    const panelH = Math.min(420, Math.floor(height * 0.64));
+    const panelW = Math.min(660, Math.floor(width * 0.85));
+    const panelH = Math.min(600, Math.floor(height * 0.95));
 
     // Soft drop shadow
     const shadow = this.add.graphics().setDepth(2);
@@ -142,14 +142,14 @@ export class GameOverScene extends Scene {
     deco.strokePath();
 
     // --- SCORE ---
-    this.add.text(centerX, centerY - 52, "YOUR SCORE", {
+    this.add.text(centerX, centerY - 150, "YOUR SCORE", {
       fontSize: "28px",
       color: COLORS.TEXT_DARK,
       fontFamily: '"Jersey 10", sans-serif',
       align: "center",
     }).setOrigin(0.5).setDepth(3);
 
-    const scoreText = this.add.text(centerX, centerY - 18, "0", {
+    const scoreText = this.add.text(centerX, centerY - 90, "0", {
       fontSize: "54px",
       color: COLORS.TEXT_LIGHT,
       fontFamily: '"Jersey 10", sans-serif',
@@ -189,7 +189,7 @@ export class GameOverScene extends Scene {
     }
 
     // --- Buttons Row ---
-    this.createMenuButtons(centerX, centerY + panelH / 2 - 54);
+    this.createMenuButtons(centerX, centerY + panelH / 2 - 40);
 
     // Safety: if this scene shuts down, always resume keys
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this._resumeKeys());
@@ -251,10 +251,10 @@ export class GameOverScene extends Scene {
       align: "center",
     }).setOrigin(0.5).setDepth(7);
 
-    const padX = 26;
-    const padY = 14;
-    const w = Math.max(220, txt.width + padX * 2);
-    const h = Math.max(62, txt.height + padY * 2);
+    const padX = 18;
+    const padY = 10;
+    const w = Math.max(150, txt.width + padX * 2);
+    const h = Math.max(50, txt.height + padY * 2);
     const r = 18;
 
     const g = this.add.graphics().setDepth(6);
@@ -285,7 +285,7 @@ export class GameOverScene extends Scene {
 
   showQualificationUI(centerX, centerY, rank) {
     const msg = `🎉 You made the leaderboard! Rank #${rank}`;
-    this.add.text(centerX, centerY, msg, {
+    this.add.text(centerX, centerY - 40, msg, {
       fontSize: "30px",
       color: "#efe6d3",
       fontFamily: '"Jersey 10", sans-serif',
@@ -293,14 +293,14 @@ export class GameOverScene extends Scene {
       wordWrap: { width: Math.min(620, this.scale.width * 0.82), useAdvanced: true },
     }).setOrigin(0.5).setDepth(6).setStroke("#7f1a02", 3).setTint(0x2e7d32);
 
-    this.add.text(centerX, centerY + 30, "Enter your initials:", {
+    this.add.text(centerX, centerY + 20, "Enter your initials:", {
       fontSize: "28px",
       color: "#6b2a12",
       fontFamily: '"Jersey 10", sans-serif',
     }).setOrigin(0.5).setDepth(6);
 
     // --- DOM input on-theme
-    const input = this.add.dom(centerX, centerY + 64, "input", {
+    const input = this.add.dom(centerX, centerY + 80, "input", {
       type: "text",
       maxlength: 3,
       fontSize: "26px",
@@ -383,7 +383,7 @@ export class GameOverScene extends Scene {
     };
 
     // Submit button
-    this._makeBrownButton(centerX, centerY + 116, "Submit", handleSubmit);
+    this._makeBrownButton(centerX + 10, centerY + 160, "Submit", handleSubmit);
     // If you also want Enter to work when the input is NOT focused:
     this.input.keyboard.once?.("keydown-ENTER", () => {
       if (document.activeElement !== el) handleSubmit();
@@ -391,7 +391,7 @@ export class GameOverScene extends Scene {
   }
 
   createMenuButtons(centerX, baseY) {
-    const gap = 240;
+    const gap = 450;
 
     this._makeBrownButton(centerX - gap / 2, baseY, "Play Again", () => {
       // Re-enable keys for the next scene
