@@ -346,7 +346,7 @@ export class GameOverScene extends Scene {
 
       try {
         if (username.length !== 3) throw new Error("Username must be exactly three characters");
-        
+
         const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -375,7 +375,7 @@ export class GameOverScene extends Scene {
         });
       } catch (err) {
         console.error("Error submitting score:", err);
-        const message = "Error submitting score:" + err.message;
+        const message = err.message;
 
         const errorText = this.add.text(centerX, centerY + 40, message, {
           fontSize: "26px",
