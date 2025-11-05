@@ -275,9 +275,9 @@ export class GameOverScene extends Scene {
     });
 
     zone.on("pointerover", () => draw(COLORS.HOVER));
-    zone.on("pointerout",  () => draw(COLORS.FILL));
+    zone.on("pointerout", () => draw(COLORS.FILL));
     zone.on("pointerdown", () => { g.y += 1; txt.y += 1; });
-    zone.on("pointerup",   () => { g.y -= 1; txt.y -= 1; if (typeof onClick === "function") onClick(); });
+    zone.on("pointerup", () => { g.y -= 1; txt.y -= 1; if (typeof onClick === "function") onClick(); });
 
     const container = this.add.container(0, 0, [g, txt, zone]).setSize(w, h).setDepth(7);
     return container;
@@ -323,9 +323,9 @@ export class GameOverScene extends Scene {
     // When focused: disable Phaser keyboard entirely
     el.addEventListener("focus", () => this._suspendKeys());
     // When leaving the field: re-enable Phaser keyboard
-    el.addEventListener("blur",  () => this._resumeKeys());
+    el.addEventListener("blur", () => this._resumeKeys());
     // Never let keystrokes bubble to Phaser while typing
-    ["keydown","keyup","keypress","input"].forEach(evt =>
+    ["keydown", "keyup", "keypress", "input"].forEach(evt =>
       el.addEventListener(evt, e => e.stopPropagation(), { capture: true })
     );
     // Allow Enter to submit while focused (works even with Phaser keys suspended)
@@ -340,8 +340,10 @@ export class GameOverScene extends Scene {
     this.time.delayedCall(0, focusInput);
 
     const handleSubmit = async () => {
-      const username = (el.value || "").toUpperCase().slice(0, 3) || "AAA";
+      const username = (el.value || "").toUpperCase().slice(0, 3) || "";
       const score = parseInt(this.end_points, 10);
+
+      if (username.length !== 3) throw new Error("Username must be exactly three characters");
 
       try {
         const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
@@ -372,12 +374,27 @@ export class GameOverScene extends Scene {
         });
       } catch (err) {
         console.error("Error submitting score:", err);
-        this.add.text(centerX, centerY + 40, "Submission failed.", {
+        const message = "Error submitting score:" + err.message;
+
+        const errorText = this.add.text(centerX, centerY + 40, message, {
           fontSize: "26px",
           color: "#efe6d3",
           fontFamily: '"Jersey 10", sans-serif',
-        }).setOrigin(0.5).setDepth(7).setStroke("#7f1a02", 3).setTint(0x8b0000);
-        // Keep focus so they can correct/try again
+        })
+          .setOrigin(0.5)
+          .setDepth(7)
+          .setStroke("#7f1a02", 3)
+          .setTint(0x8b0000);
+
+        // Fade out after 2 seconds, lasting 0.8 seconds
+        this.tweens.add({
+          targets: errorText,
+          alpha: { from: 1, to: 0 },
+          delay: 2000,
+          duration: 800,
+          onComplete: () => errorText.destroy()
+        });
+
         this.time.delayedCall(0, focusInput);
       }
     };
