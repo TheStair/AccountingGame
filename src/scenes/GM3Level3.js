@@ -170,7 +170,17 @@ export default class GM3Level3 extends BaseGM3Scene {
         ? [-half, 0, half, 0, 0, -heightPx]
         : [-half, 0, half, 0, 0,  heightPx];
     };
-    const cycleValues = ["O", "NE", "U"];
+
+    // Canonical order for cycling and display
+    const cycleValues = ["NE", "U", "O"];
+    const nextOf = (cur) => {
+      const i = cycleValues.indexOf(cur);
+      return cycleValues[(i + 1) % cycleValues.length];
+    };
+    const prevOf = (cur) => {
+      const i = cycleValues.indexOf(cur);
+      return cycleValues[(i - 1 + cycleValues.length) % cycleValues.length];
+    };
 
     const makeSelector = (centerX, key) => {
       const container = this.add.container(centerX, selY).setDepth(6);
@@ -209,26 +219,22 @@ export default class GM3Level3 extends BaseGM3Scene {
       downPoly.on("pointerover", () => downPoly.setFillStyle(0xefdcbc, 1));
       downPoly.on("pointerout",  () => downPoly.setFillStyle(beige, 1));
 
-      const cycleForward = () => {
-        const cur = this.selections[key];
-        const idx = cycleValues.indexOf(cur);
-        const next = cycleValues[(idx + 1) % cycleValues.length];
-        this.selections[key] = next; valueText.setText(next);
-        this.sound?.play?.("ui_click");
-      };
-      const cycleBackward = () => {
-        const cur = this.selections[key];
-        const idx = cycleValues.indexOf(cur);
-        const next = cycleValues[(idx - 1 + cycleValues.length) % cycleValues.length];
-        this.selections[key] = next; valueText.setText(next);
+      const setValue = (val) => {
+        this.selections[key] = val;
+        valueText.setText(val);
         this.sound?.play?.("ui_click");
       };
 
+      // Box click = always cycle forward NE -> U -> O
       rect.on("pointerover", () => rect.setFillStyle(0xefdcbc));
       rect.on("pointerout",  () => rect.setFillStyle(beige));
-      rect.on("pointerdown", cycleForward);
-      upPoly.on("pointerdown", cycleForward);
-      downPoly.on("pointerdown", cycleBackward);
+      rect.on("pointerdown", () => setValue(nextOf(this.selections[key])));
+
+      // UP arrow = previous in cycle (so NE -> O)
+      upPoly.on("pointerdown", () => setValue(prevOf(this.selections[key])));
+
+      // DOWN arrow = next in cycle (so NE -> U)
+      downPoly.on("pointerdown", () => setValue(nextOf(this.selections[key])));
 
       return { container, rect, valueText, upPoly, downPoly, key };
     };
@@ -466,9 +472,9 @@ export default class GM3Level3 extends BaseGM3Scene {
       this.tweens.add({ targets: n, alpha: 1, duration: 350 })));
   }
 
-  _formatScore(n) { 
-  return String(Math.max(0, n | 0)).padStart(4, "0"); // 4 digits -> "0000"
-}
+  _formatScore(n) {
+    return String(Math.max(0, n | 0)).padStart(4, "0"); // 4 digits -> "0000"
+  }
   _updateScoreUI() { if (this.scoreText) this.scoreText.setText(`POINTS: ${this._formatScore(this.score)}`); }
   _updateTimerUI() { if (this.timerText) this.timerText.setText(`Time: ${this.timeLeft | 0}s`); }
   _showPlusAmount(amount = 300) {
