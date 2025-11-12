@@ -302,7 +302,6 @@ export class GameOverScene extends Scene {
     // --- DOM input on-theme
     const input = this.add.dom(centerX, centerY + 80, "input", {
       type: "text",
-      maxlength: 3,
       fontSize: "26px",
       textAlign: "center",
       width: "108px",
@@ -340,12 +339,12 @@ export class GameOverScene extends Scene {
     this.time.delayedCall(0, focusInput);
 
     const handleSubmit = async () => {
-      const username = (el.value || "").toUpperCase().slice(0, 3) || "";
+      const username = (el.value || "").toUpperCase() || "";
       const score = parseInt(this.end_points, 10);
       
 
       try {
-        if (username.length !== 3) throw new Error("Username must be exactly three characters");
+        if (username.length < 3 || username.length > 3) throw new Error("Username must be exactly three characters");
 
         const res = await fetch(`${this.game.apiBaseUrl}/submit`, {
           method: "POST",
