@@ -302,7 +302,6 @@ export class GameOverScene extends Scene {
     // --- DOM input on-theme
     const input = this.add.dom(centerX, centerY + 80, "input", {
       type: "text",
-      maxlength: 3,
       fontSize: "26px",
       textAlign: "center",
       width: "108px",
