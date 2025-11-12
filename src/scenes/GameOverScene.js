@@ -340,7 +340,7 @@ export class GameOverScene extends Scene {
     this.time.delayedCall(0, focusInput);
 
     const handleSubmit = async () => {
-      const username = (el.value || "").toUpperCase().slice(0, 3) || "";
+      const username = (el.value || "").toUpperCase() || "";
       const score = parseInt(this.end_points, 10);
       
 
