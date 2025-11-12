@@ -307,7 +307,7 @@ export default class GM3Level3 extends BaseGM3Scene {
     g.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 18);
     card.add(g);
 
-    const message = "What is the effect on the financial statement elements?\nClick on up and down arrows or element boxes to indicate change.";
+    const message = "What is the effect on the financial statement elements?\nClick on up and down arrows or element boxes to indicate change (O=overstated, U=understated, NE=no effect).";
     const title = this.add.text(0, -40, message, {
       fontSize: "34px",
       color: "#7f1a02",
