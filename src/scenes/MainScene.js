@@ -196,8 +196,8 @@ const assignPoints = (name) => {
 
 const config = {
     time_limit: 90000,
-    time_between_ball_spawns: 3000,
-    time_move_across_screen: 500,
+    time_between_ball_spawns: 3500,
+    time_move_across_screen: 450,
 };
 
 export class MainScene extends Scene {
