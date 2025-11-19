@@ -151,27 +151,65 @@ export class Leaderboard extends Scene {
 
         // --- Scrollbar ---
         // --- Scrollbar ---
-            const trackMargin = 10;
-            const scrollBarX = panelX + panelWidth / 2 - 8;
-            const scrollBarHeight = maskVisibleHeight - trackMargin * 2;
+        const trackMargin = 10;
+        const scrollBarX = panelX + panelWidth / 2 - 8;
+        const scrollBarHeight = maskVisibleHeight - trackMargin * 2;
 
-            // Track background
-            this.scrollTrack = this.add.rectangle(
+        // Track background
+        this.scrollTrack = this.add.rectangle(
             scrollBarX,
             maskTopY + trackMargin + scrollBarHeight / 2,
             6,
             scrollBarHeight,
             0x3d0c02
-            );
+        );
 
-            // Thumb (top-anchored)
-            this.scrollThumb = this.add.rectangle(
+        this.scrollTrack.setInteractive({ useHandCursor: true });
+        this.scrollTrack.on("pointerdown", (pointer) => {
+            const thumbHeight = this.scrollThumb.height;
+            const trackTop = this.maskTopY + 10;
+            const clickY = pointer.y - thumbHeight / 2;
+
+            this.scrollThumb.y = Phaser.Math.Clamp(clickY, trackTop, trackTop + this.maskVisibleHeight - thumbHeight - 20);
+
+            // Map thumb position to scrollY again
+            const overflow = Math.max(0, this.contentHeight - this.maskVisibleHeight);
+            const scrollRatio = (this.scrollThumb.y - trackTop) / (this.maskVisibleHeight - thumbHeight - 20);
+            this.scrollY = -scrollRatio * overflow;
+            this.tableGroup.y = this.maskTopY + this.scrollY;
+        });
+
+        // Thumb (top-anchored)
+        this.scrollThumb = this.add.rectangle(
             scrollBarX,
             maskTopY + trackMargin,
             6,
             60,
             0xdcc89f
-            ).setOrigin(0.5, 0);  // 👈 anchor at top
+        ).setOrigin(0.5, 0);  // 👈 anchor at top
+
+        this.scrollThumb.setInteractive({ draggable: true, useHandCursor: true });
+
+        // Handle dragging
+        this.input.setDraggable(this.scrollThumb);
+
+        this.scrollThumb.on("drag", (pointer, dragX, dragY) => {
+            const trackMargin = 10;
+            const trackTop = this.maskTopY + trackMargin;
+            const trackBottom = this.maskTopY + this.maskVisibleHeight - this.scrollThumb.height - trackMargin;
+
+            // Clamp the thumb to the track
+            dragY = Phaser.Math.Clamp(dragY, trackTop, trackBottom);
+            this.scrollThumb.y = dragY;
+
+            // Map thumb position back to scrollY
+            const overflow = Math.max(0, this.contentHeight - this.maskVisibleHeight);
+            const scrollRatio = (dragY - trackTop) / (trackBottom - trackTop);
+            this.scrollY = -scrollRatio * overflow;
+
+            // Update the table position
+            this.tableGroup.y = this.maskTopY + this.scrollY;
+        });
 
         // Scrolling logic
         this.scrollY = 0;
@@ -186,30 +224,30 @@ export class Leaderboard extends Scene {
     }
 
     updateScroll(maskVisibleHeight, maskTopY) {
-  const overflow = Math.max(0, this.contentHeight - maskVisibleHeight);
-  const trackMargin = 10;
+        const overflow = Math.max(0, this.contentHeight - maskVisibleHeight);
+        const trackMargin = 10;
 
-  if (overflow <= 0) {
-    this.scrollY = 0;
-    this.scrollThumb.setVisible(false);
-    this.tableGroup.y = maskTopY;
-    return;
-  }
+        if (overflow <= 0) {
+            this.scrollY = 0;
+            this.scrollThumb.setVisible(false);
+            this.tableGroup.y = maskTopY;
+            return;
+        }
 
-  this.scrollThumb.setVisible(true);
+        this.scrollThumb.setVisible(true);
 
-  const minY = -overflow;
-  const maxY = 0;
-  this.scrollY = Phaser.Math.Clamp(this.scrollY, minY, maxY);
-  this.tableGroup.y = maskTopY + this.scrollY;
+        const minY = -overflow;
+        const maxY = 0;
+        this.scrollY = Phaser.Math.Clamp(this.scrollY, minY, maxY);
+        this.tableGroup.y = maskTopY + this.scrollY;
 
-  // Compute thumb Y using top anchor
-  const scrollRatio = -this.scrollY / overflow;
-  const trackTop = maskTopY + trackMargin;
-  const trackHeight = maskVisibleHeight - this.scrollThumb.height - trackMargin * 2;
+        // Compute thumb Y using top anchor
+        const scrollRatio = -this.scrollY / overflow;
+        const trackTop = maskTopY + trackMargin;
+        const trackHeight = maskVisibleHeight - this.scrollThumb.height - trackMargin * 2;
 
-  this.scrollThumb.y = trackTop + scrollRatio * trackHeight;
-}
+        this.scrollThumb.y = trackTop + scrollRatio * trackHeight;
+    }
 
     async loadLeaderboard(mode, button = null) {
         // Clear old
